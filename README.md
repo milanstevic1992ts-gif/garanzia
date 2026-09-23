@@ -3,7 +3,7 @@
 Archivio Android offline-first per scontrini e garanzie.
 
 ## Stato progetto
-Fase 1 — Fondamenta Android.
+Fase 3 — PaddleOCR PP-OCRv6 integrato (controllo statico completato; build reale prevista in Fase 16).
 
 ## Principi
 - Android nativo: Kotlin + Jetpack Compose + Material 3
@@ -15,9 +15,13 @@ Fase 1 — Fondamenta Android.
 - Nessun backend nella prima versione
 
 ## Roadmap
-1. Fondamenta Android
-2. Scanner scontrino
-3. PaddleOCR PP-OCRv6
+1. ✅ Fondamenta Android
+2. ✅ Scanner scontrino
+3. ✅ PaddleOCR PP-OCRv6
+   - SDK Android ufficiale PaddleOCR integrato come modulo `ppocr-sdk`
+   - modelli PP-OCRv6 small scaricati al primo utilizzo e verificati SHA-256
+   - OCR locale con testo, bounding box e confidence
+   - lo scontrino originale viene conservato prima dell'OCR
 4. Interpretazione intelligente dello scontrino
 5. Confidence e anti-allucinazione
 6. Comprensione multi-prodotto
