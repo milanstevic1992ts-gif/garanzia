@@ -20,6 +20,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.milanstevic.garanzia.ocr.OcrReceiptResult
+import com.milanstevic.garanzia.ocr.OcrResultScreen
+import com.milanstevic.garanzia.ocr.ReceiptOcrEngine
 import com.milanstevic.garanzia.scanner.DocumentScannerManager
 import com.milanstevic.garanzia.scanner.FallbackCameraScreen
 import com.milanstevic.garanzia.scanner.ReceiptFileStore
@@ -39,6 +42,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var receiptFileStore: ReceiptFileStore
 
+    @Inject
+    lateinit var receiptOcrEngine: ReceiptOcrEngine
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -47,6 +53,7 @@ class MainActivity : ComponentActivity() {
                 GaranziaApp(
                     activity = this,
                     fileStore = receiptFileStore,
+                    ocrEngine = receiptOcrEngine,
                 )
             }
         }
@@ -57,18 +64,25 @@ private enum class AppScreen {
     HOME,
     CAMERA,
     REVIEW,
+    OCR,
 }
 
 @Composable
 private fun GaranziaApp(
     activity: Activity,
     fileStore: ReceiptFileStore,
+    ocrEngine: ReceiptOcrEngine,
 ) {
     val scope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(AppScreen.HOME) }
     var cameraOutput by remember { mutableStateOf<File?>(null) }
     var lastSavedPages by remember { mutableIntStateOf(0) }
     val stagedUris = remember { mutableStateListOf<Uri>() }
+
+    var ocrStatus by remember { mutableStateOf("Preparazione OCR") }
+    var ocrProgress by remember { mutableStateOf<Int?>(null) }
+    var ocrResult by remember { mutableStateOf<OcrReceiptResult?>(null) }
+    var ocrError by remember { mutableStateOf<String?>(null) }
 
     fun showReview(uris: List<Uri>) {
         stagedUris.clear()
@@ -79,6 +93,32 @@ private fun GaranziaApp(
     fun launchFallbackCamera() {
         cameraOutput = fileStore.newCameraCaptureFile()
         screen = AppScreen.CAMERA
+    }
+
+    fun startOcr(savedUris: List<Uri>) {
+        ocrStatus = "Preparazione PP-OCRv6"
+        ocrProgress = null
+        ocrResult = null
+        ocrError = null
+        screen = AppScreen.OCR
+
+        scope.launch {
+            try {
+                val result = ocrEngine.recognize(savedUris) { progress ->
+                    withContext(Dispatchers.Main) {
+                        ocrStatus =
+                            "Modello ${progress.modelIndex}/${progress.modelCount}: ${progress.label}"
+                        ocrProgress = progress.percent
+                    }
+                }
+                ocrResult = result
+                ocrStatus = "OCR completato"
+                ocrProgress = 100
+            } catch (t: Throwable) {
+                ocrError = t.message ?: t::class.java.simpleName
+                ocrStatus = "OCR non completato"
+            }
+        }
     }
 
     val cameraPermissionLauncher =
@@ -157,7 +197,13 @@ private fun GaranziaApp(
                     }
                     lastSavedPages = finalized.size
                     stagedUris.clear()
-                    screen = AppScreen.HOME
+
+                    if (finalized.isNotEmpty()) {
+                        startOcr(finalized)
+                    } else {
+                        ocrError = "Impossibile conservare lo scontrino"
+                        screen = AppScreen.OCR
+                    }
                 }
             },
             onDiscard = {
@@ -166,6 +212,19 @@ private fun GaranziaApp(
                     fileStore.discardStaged(toDiscard)
                 }
                 stagedUris.clear()
+                screen = AppScreen.HOME
+            },
+        )
+
+        AppScreen.OCR -> OcrResultScreen(
+            status = ocrStatus,
+            progressPercent = ocrProgress,
+            result = ocrResult,
+            error = ocrError,
+            onDone = {
+                ocrResult = null
+                ocrError = null
+                ocrProgress = null
                 screen = AppScreen.HOME
             },
         )
