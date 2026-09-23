@@ -15,4 +15,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Garanzia"
-include(":app")\ninclude(":ppocr-sdk")\n
+include(":app")
+include(":ppocr-sdk")
