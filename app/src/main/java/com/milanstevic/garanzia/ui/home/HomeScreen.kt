@@ -13,7 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onScanReceipt: () -> Unit,
+    lastSavedPages: Int,
+) {
     Scaffold { innerPadding ->
         Column(
             modifier = Modifier
@@ -31,14 +34,17 @@ fun HomeScreen() {
                 style = MaterialTheme.typography.titleMedium,
             )
             Text(
-                text = "Fase 1 completata: fondamenta Android offline-first.",
+                text = "Scansiona uno scontrino. Il documento originale resta sul telefono.",
                 style = MaterialTheme.typography.bodyLarge,
             )
-            Button(
-                onClick = {},
-                enabled = false,
-            ) {
-                Text("Scansiona scontrino — disponibile dalla Fase 2")
+            Button(onClick = onScanReceipt) {
+                Text("Scansiona scontrino")
+            }
+            if (lastSavedPages > 0) {
+                Text(
+                    text = "Ultima acquisizione conservata: $lastSavedPages pagina/e.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
         }
     }
