@@ -20,6 +20,7 @@ import ai.onnxruntime.OrtSession
 import android.content.Context
 import com.paddle.ocr.EngineConfig
 import com.paddle.ocr.model.OCRError
+import java.io.File
 import java.nio.FloatBuffer
 
 class ORTSessionManager(
@@ -68,6 +69,44 @@ class ORTSessionManager(
             } catch (t: Throwable) {
                 throw OCRError.ModelLoadFailed("recognition", t)
             }
+            coldLoadTimeMs = System.currentTimeMillis() - loadStart
+        } finally {
+            opts.close()
+        }
+    }
+
+    /**
+     * Garanzia adaptation: load verified ONNX files from app-private storage.
+     * The upstream SDK normally reads models from APK assets.
+     */
+    fun loadModelFiles(detModelFile: File, recModelFile: File) {
+        require(detModelFile.isFile) { "Detection model not found: $detModelFile" }
+        require(recModelFile.isFile) { "Recognition model not found: $recModelFile" }
+
+        val loadStart = System.currentTimeMillis()
+        env = OrtEnvironment.getEnvironment()
+        val opts = OrtSession.SessionOptions().apply {
+            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+            setIntraOpNumThreads(config.numThreads)
+        }
+        try {
+            val ortEnv = env
+                ?: throw OCRError.ModelLoadFailed("OCR", Exception("Environment not initialized"))
+            try {
+                detSession = ortEnv.createSession(detModelFile.absolutePath, opts)
+            } catch (t: Throwable) {
+                throw OCRError.ModelLoadFailed("detection", t)
+            }
+            try {
+                recSession = ortEnv.createSession(recModelFile.absolutePath, opts)
+            } catch (t: Throwable) {
+                detSession?.close()
+                detSession = null
+                throw OCRError.ModelLoadFailed("recognition", t)
+            }
+
+            detInputName = detSession!!.inputNames.iterator().next()
+            recInputName = recSession!!.inputNames.iterator().next()
             coldLoadTimeMs = System.currentTimeMillis() - loadStart
         } finally {
             opts.close()
