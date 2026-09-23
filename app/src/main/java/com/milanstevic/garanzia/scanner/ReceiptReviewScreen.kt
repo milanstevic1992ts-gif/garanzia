@@ -39,7 +39,7 @@ fun ReceiptReviewScreen(
                 style = MaterialTheme.typography.headlineSmall,
             )
             Text(
-                text = "L'immagine originale viene conservata. L'OCR arriverà nella Fase 3.",
+                text = "Prima conserviamo l'immagine originale, poi PP-OCRv6 legge il testo sul dispositivo.",
                 style = MaterialTheme.typography.bodyMedium,
             )
 
@@ -74,7 +74,7 @@ fun ReceiptReviewScreen(
                     modifier = Modifier.weight(1f),
                     onClick = onAccept,
                 ) {
-                    Text("Conserva scontrino")
+                    Text("Conserva e leggi")
                 }
             }
         }
