@@ -64,6 +64,7 @@ Fase 7 — conferma intelligente integrata (controllo statico completato; build 
    - modifica manuale di nome prodotto, quantità, prezzo unitario e importo riga
    - possibilità di rimuovere falsi prodotti OCR
    - possibilità di aggiungere prodotti mancanti manualmente
+   - almeno un prodotto è obbligatorio prima della conferma
    - validazione stretta della data e degli importi prima della conferma
    - gli indicatori `Da verificare` si risolvono dopo una correzione manuale
    - conferma mantenuta solo nella sessione: nessun salvataggio database anticipato
