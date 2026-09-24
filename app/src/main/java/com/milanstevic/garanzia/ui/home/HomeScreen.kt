@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 fun HomeScreen(
     onScanReceipt: () -> Unit,
     lastSavedPages: Int,
+    lastConfirmedProducts: Int?,
 ) {
     Scaffold { innerPadding ->
         Column(
@@ -43,6 +44,13 @@ fun HomeScreen(
             if (lastSavedPages > 0) {
                 Text(
                     text = "Ultima acquisizione conservata: $lastSavedPages pagina/e.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            lastConfirmedProducts?.let { productCount ->
+                Text(
+                    text = "Ultimo scontrino confermato in questa sessione: $productCount prodotto/i.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
