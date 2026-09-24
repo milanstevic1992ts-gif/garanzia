@@ -5,6 +5,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 android {
     namespace = "com.milanstevic.garanzia"
     compileSdk = 37
@@ -68,6 +72,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
 
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.room:room-testing:2.8.5")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
