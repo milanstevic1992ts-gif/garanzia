@@ -23,6 +23,7 @@ data class ReceiptEntity(
     val vatNumber: String?,
     val documentNumber: String?,
     val paymentMethod: String?,
+    val rawOcrText: String?,
     val confirmedAtEpochMs: Long,
 )
 
