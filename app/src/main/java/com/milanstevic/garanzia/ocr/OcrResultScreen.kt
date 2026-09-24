@@ -203,7 +203,7 @@ private fun formatAmount(
     val number = amount.setScale(2).toPlainString().replace('.', ',')
     return when (currency) {
         "EUR" -> "$number €"
-        "USD" -> "$number $"
+        "USD" -> "$number \\$"
         "GBP" -> "$number £"
         null -> number
         else -> "$number $currency"
