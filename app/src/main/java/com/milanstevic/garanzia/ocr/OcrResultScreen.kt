@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.milanstevic.garanzia.intelligence.InterpretedField
 import com.milanstevic.garanzia.intelligence.ReceiptInterpretation
+import com.milanstevic.garanzia.intelligence.ReceiptProduct
 import java.math.BigDecimal
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -132,6 +133,24 @@ fun OcrResultScreen(
                                 )
                             }
                         }
+
+                        if (interpretation.products.isNotEmpty()) {
+                            item {
+                                HorizontalDivider()
+                            }
+                            item {
+                                Text(
+                                    text = "Prodotti rilevati (${interpretation.products.size})",
+                                    style = MaterialTheme.typography.titleMedium,
+                                )
+                            }
+                            items(interpretation.products) { field ->
+                                ProductField(
+                                    field = field,
+                                    currency = interpretation.currency?.value,
+                                )
+                            }
+                        }
                     } else {
                         item {
                             Text(
@@ -223,6 +242,59 @@ private fun InterpretationField(
         )
     }
 }
+
+@Composable
+private fun ProductField(
+    field: InterpretedField<ReceiptProduct>,
+    currency: String?,
+) {
+    val product = field.value
+    val confidence = (field.confidence * 100f).roundToInt()
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            text = product.name,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+
+        product.quantity?.let { quantity ->
+            Text(
+                text = "Quantità: ${formatQuantity(quantity)}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+
+        product.unitPrice?.let { unitPrice ->
+            Text(
+                text = "Prezzo unitario: ${formatAmount(unitPrice, currency)}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+
+        product.lineTotal?.let { total ->
+            Text(
+                text = "Importo riga: ${formatAmount(total, currency)}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+
+        Text(
+            text = "Affidabilità: ${field.level.displayName} ($confidence%)",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            text = "Evidenza OCR: ${field.evidence}",
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+}
+
+private fun formatQuantity(quantity: BigDecimal): String =
+    quantity.stripTrailingZeros().toPlainString().replace('.', ',')
+
 
 private fun formatAmount(
     amount: BigDecimal,
