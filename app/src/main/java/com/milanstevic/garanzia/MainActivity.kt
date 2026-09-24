@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.milanstevic.garanzia.archive.ArchiveFilterState
 import com.milanstevic.garanzia.archive.ReceiptArchiveDetailScreen
 import com.milanstevic.garanzia.archive.ReceiptArchiveScreen
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
@@ -105,6 +106,7 @@ private fun GaranziaApp(
     val archiveReceiptsFlow = remember(receiptRepository) { receiptRepository.observeReceipts() }
     val archiveReceipts by archiveReceiptsFlow.collectAsState(initial = emptyList())
     var selectedArchiveReceiptId by remember { mutableStateOf<String?>(null) }
+    var archiveFilters by remember { mutableStateOf(ArchiveFilterState()) }
 
     var ocrStatus by remember { mutableStateOf("Preparazione OCR") }
     var ocrProgress by remember { mutableStateOf<Int?>(null) }
@@ -333,6 +335,8 @@ private fun GaranziaApp(
 
         AppScreen.ARCHIVE -> ReceiptArchiveScreen(
             receipts = archiveReceipts,
+            filters = archiveFilters,
+            onFiltersChange = { archiveFilters = it },
             onOpenReceipt = { receiptId ->
                 selectedArchiveReceiptId = receiptId
                 screen = AppScreen.ARCHIVE_DETAIL
@@ -359,6 +363,8 @@ private fun GaranziaApp(
             } else {
                 ReceiptArchiveScreen(
                     receipts = archiveReceipts,
+                    filters = archiveFilters,
+                    onFiltersChange = { archiveFilters = it },
                     onOpenReceipt = { receiptId ->
                         selectedArchiveReceiptId = receiptId
                     },
