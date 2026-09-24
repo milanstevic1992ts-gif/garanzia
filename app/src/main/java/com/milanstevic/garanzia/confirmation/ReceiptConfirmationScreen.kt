@@ -68,7 +68,14 @@ fun ReceiptConfirmationScreen(
                     ConfirmationTextField(
                         label = "Negozio *",
                         value = draft.merchant,
-                        onValueChange = { onDraftChange(draft.copy(merchant = it)) },
+                        onValueChange = {
+                            onDraftChange(
+                                draft.copy(
+                                    merchant = it,
+                                    fieldsToReview = draft.fieldsToReview - ConfirmationField.MERCHANT,
+                                ),
+                            )
+                        },
                         requiresReview = ConfirmationField.MERCHANT in draft.fieldsToReview,
                         isError = draft.merchant.isBlank(),
                     )
@@ -78,7 +85,14 @@ fun ReceiptConfirmationScreen(
                     ConfirmationTextField(
                         label = "Data acquisto *",
                         value = draft.purchaseDate,
-                        onValueChange = { onDraftChange(draft.copy(purchaseDate = it)) },
+                        onValueChange = {
+                            onDraftChange(
+                                draft.copy(
+                                    purchaseDate = it,
+                                    fieldsToReview = draft.fieldsToReview - ConfirmationField.PURCHASE_DATE,
+                                ),
+                            )
+                        },
                         requiresReview = ConfirmationField.PURCHASE_DATE in draft.fieldsToReview,
                         isError = !ReceiptConfirmationDraft.isValidDate(draft.purchaseDate),
                         helper = "Formato: gg/mm/aaaa",
@@ -89,7 +103,14 @@ fun ReceiptConfirmationScreen(
                     ConfirmationTextField(
                         label = "Ora",
                         value = draft.purchaseTime,
-                        onValueChange = { onDraftChange(draft.copy(purchaseTime = it)) },
+                        onValueChange = {
+                            onDraftChange(
+                                draft.copy(
+                                    purchaseTime = it,
+                                    fieldsToReview = draft.fieldsToReview - ConfirmationField.PURCHASE_TIME,
+                                ),
+                            )
+                        },
                         requiresReview = ConfirmationField.PURCHASE_TIME in draft.fieldsToReview,
                     )
                 }
@@ -98,7 +119,14 @@ fun ReceiptConfirmationScreen(
                     ConfirmationTextField(
                         label = "Totale *",
                         value = draft.totalAmount,
-                        onValueChange = { onDraftChange(draft.copy(totalAmount = it)) },
+                        onValueChange = {
+                            onDraftChange(
+                                draft.copy(
+                                    totalAmount = it,
+                                    fieldsToReview = draft.fieldsToReview - ConfirmationField.TOTAL,
+                                ),
+                            )
+                        },
                         requiresReview = ConfirmationField.TOTAL in draft.fieldsToReview,
                         isError = ReceiptConfirmationDraft.parseMoney(draft.totalAmount) == null,
                         helper = "Esempio: 129,90",
@@ -109,7 +137,14 @@ fun ReceiptConfirmationScreen(
                     ConfirmationTextField(
                         label = "Valuta",
                         value = draft.currency,
-                        onValueChange = { onDraftChange(draft.copy(currency = it.uppercase())) },
+                        onValueChange = {
+                            onDraftChange(
+                                draft.copy(
+                                    currency = it.uppercase(),
+                                    fieldsToReview = draft.fieldsToReview - ConfirmationField.CURRENCY,
+                                ),
+                            )
+                        },
                         requiresReview = ConfirmationField.CURRENCY in draft.fieldsToReview,
                     )
                 }
@@ -118,7 +153,14 @@ fun ReceiptConfirmationScreen(
                     ConfirmationTextField(
                         label = "Partita IVA",
                         value = draft.vatNumber,
-                        onValueChange = { onDraftChange(draft.copy(vatNumber = it)) },
+                        onValueChange = {
+                            onDraftChange(
+                                draft.copy(
+                                    vatNumber = it,
+                                    fieldsToReview = draft.fieldsToReview - ConfirmationField.VAT_NUMBER,
+                                ),
+                            )
+                        },
                         requiresReview = ConfirmationField.VAT_NUMBER in draft.fieldsToReview,
                     )
                 }
@@ -127,7 +169,14 @@ fun ReceiptConfirmationScreen(
                     ConfirmationTextField(
                         label = "Numero documento",
                         value = draft.documentNumber,
-                        onValueChange = { onDraftChange(draft.copy(documentNumber = it)) },
+                        onValueChange = {
+                            onDraftChange(
+                                draft.copy(
+                                    documentNumber = it,
+                                    fieldsToReview = draft.fieldsToReview - ConfirmationField.DOCUMENT_NUMBER,
+                                ),
+                            )
+                        },
                         requiresReview = ConfirmationField.DOCUMENT_NUMBER in draft.fieldsToReview,
                     )
                 }
@@ -136,7 +185,14 @@ fun ReceiptConfirmationScreen(
                     ConfirmationTextField(
                         label = "Pagamento",
                         value = draft.paymentMethod,
-                        onValueChange = { onDraftChange(draft.copy(paymentMethod = it)) },
+                        onValueChange = {
+                            onDraftChange(
+                                draft.copy(
+                                    paymentMethod = it,
+                                    fieldsToReview = draft.fieldsToReview - ConfirmationField.PAYMENT_METHOD,
+                                ),
+                            )
+                        },
                         requiresReview = ConfirmationField.PAYMENT_METHOD in draft.fieldsToReview,
                     )
                 }
@@ -169,7 +225,7 @@ fun ReceiptConfirmationScreen(
                             onDraftChange(
                                 draft.copy(
                                     products = draft.products.toMutableList().also {
-                                        it[index] = updated
+                                        it[index] = updated.copy(requiresReview = false)
                                     },
                                 ),
                             )
