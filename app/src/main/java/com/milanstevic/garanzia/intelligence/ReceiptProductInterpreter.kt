@@ -228,8 +228,6 @@ class ReceiptProductInterpreter {
         line: String,
         merchantEvidence: String?,
     ): Boolean {
-        val normalized = line.lowercase()
-
         if (merchantEvidence != null && line == merchantEvidence) return true
         if (DATE_REGEX.containsMatchIn(line) || ISO_DATE_REGEX.containsMatchIn(line)) return true
         if (VAT_REGEX.containsMatchIn(line) || DOCUMENT_REGEX.containsMatchIn(line)) return true
@@ -256,11 +254,13 @@ class ReceiptProductInterpreter {
             quantity to unitPrice
         }
 
-    private fun parsePieceQuantity(line: String): BigDecimal? =
-        PIECE_QUANTITY_PREFIX_REGEX.find(line)
+    private fun parsePieceQuantity(line: String): BigDecimal? {
+        val normalized = PRODUCT_LABEL_PREFIX_REGEX.replace(line, "")
+        return PIECE_QUANTITY_PREFIX_REGEX.find(normalized)
             ?.groupValues
             ?.getOrNull(1)
             ?.let { parseDecimal(it, allowInteger = true) }
+    }
 
     private fun moneyValues(line: String): List<BigDecimal> =
         MONEY_REGEX.findAll(line).mapNotNull { match ->
