@@ -17,6 +17,7 @@ fun HomeScreen(
     onScanReceipt: () -> Unit,
     lastSavedPages: Int,
     lastConfirmedProducts: Int?,
+    savedReceiptCount: Int,
 ) {
     Scaffold { innerPadding ->
         Column(
@@ -37,6 +38,10 @@ fun HomeScreen(
             Text(
                 text = "Scansiona uno scontrino. Il documento originale resta sul telefono.",
                 style = MaterialTheme.typography.bodyLarge,
+            )
+            Text(
+                text = "Scontrini salvati: $savedReceiptCount",
+                style = MaterialTheme.typography.titleMedium,
             )
             Button(onClick = onScanReceipt) {
                 Text("Scansiona scontrino")
