@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -22,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationScreen
+import com.milanstevic.garanzia.data.ReceiptRepository
 import com.milanstevic.garanzia.intelligence.ReceiptInterpretation
 import com.milanstevic.garanzia.intelligence.ReceiptInterpreter
 import com.milanstevic.garanzia.ocr.OcrReceiptResult
@@ -52,6 +54,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var receiptInterpreter: ReceiptInterpreter
 
+    @Inject
+    lateinit var receiptRepository: ReceiptRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -62,6 +67,7 @@ class MainActivity : ComponentActivity() {
                     fileStore = receiptFileStore,
                     ocrEngine = receiptOcrEngine,
                     receiptInterpreter = receiptInterpreter,
+                    receiptRepository = receiptRepository,
                 )
             }
         }
@@ -82,12 +88,16 @@ private fun GaranziaApp(
     fileStore: ReceiptFileStore,
     ocrEngine: ReceiptOcrEngine,
     receiptInterpreter: ReceiptInterpreter,
+    receiptRepository: ReceiptRepository,
 ) {
     val scope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(AppScreen.HOME) }
     var cameraOutput by remember { mutableStateOf<File?>(null) }
     var lastSavedPages by remember { mutableIntStateOf(0) }
     val stagedUris = remember { mutableStateListOf<Uri>() }
+    var currentOriginalUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    val receiptCountFlow = remember(receiptRepository) { receiptRepository.observeReceiptCount() }
+    val savedReceiptCount by receiptCountFlow.collectAsState(initial = 0)
 
     var ocrStatus by remember { mutableStateOf("Preparazione OCR") }
     var ocrProgress by remember { mutableStateOf<Int?>(null) }
@@ -95,6 +105,8 @@ private fun GaranziaApp(
     var interpretation by remember { mutableStateOf<ReceiptInterpretation?>(null) }
     var confirmationDraft by remember { mutableStateOf<ReceiptConfirmationDraft?>(null) }
     var lastConfirmedProducts by remember { mutableStateOf<Int?>(null) }
+    var isSavingReceipt by remember { mutableStateOf(false) }
+    var saveReceiptError by remember { mutableStateOf<String?>(null) }
     var ocrError by remember { mutableStateOf<String?>(null) }
 
     fun showReview(uris: List<Uri>) {
@@ -114,6 +126,8 @@ private fun GaranziaApp(
         ocrResult = null
         interpretation = null
         confirmationDraft = null
+        currentOriginalUris = savedUris
+        saveReceiptError = null
         ocrError = null
         screen = AppScreen.OCR
 
@@ -190,6 +204,7 @@ private fun GaranziaApp(
             onScanReceipt = ::startScan,
             lastSavedPages = lastSavedPages,
             lastConfirmedProducts = lastConfirmedProducts,
+            savedReceiptCount = savedReceiptCount,
         )
 
         AppScreen.CAMERA -> {
@@ -263,17 +278,43 @@ private fun GaranziaApp(
             if (draft != null) {
                 ReceiptConfirmationScreen(
                     draft = draft,
-                    onDraftChange = { confirmationDraft = it },
+                    isSaving = isSavingReceipt,
+                    saveError = saveReceiptError,
+                    onDraftChange = {
+                        confirmationDraft = it
+                        saveReceiptError = null
+                    },
                     onConfirm = {
-                        lastConfirmedProducts = draft.products.size
-                        ocrResult = null
-                        interpretation = null
-                        confirmationDraft = null
-                        ocrError = null
-                        ocrProgress = null
-                        screen = AppScreen.HOME
+                        if (!isSavingReceipt) {
+                            isSavingReceipt = true
+                            saveReceiptError = null
+                            scope.launch {
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        receiptRepository.saveConfirmedReceipt(
+                                            draft = draft,
+                                            originalUris = currentOriginalUris,
+                                        )
+                                    }
+                                    lastConfirmedProducts = draft.products.size
+                                    ocrResult = null
+                                    interpretation = null
+                                    confirmationDraft = null
+                                    currentOriginalUris = emptyList()
+                                    ocrError = null
+                                    ocrProgress = null
+                                    screen = AppScreen.HOME
+                                } catch (t: Throwable) {
+                                    saveReceiptError =
+                                        t.message ?: "Impossibile salvare lo scontrino"
+                                } finally {
+                                    isSavingReceipt = false
+                                }
+                            }
+                        }
                     },
                     onBack = {
+                        saveReceiptError = null
                         screen = AppScreen.OCR
                     },
                 )
