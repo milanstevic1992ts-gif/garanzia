@@ -3,7 +3,7 @@
 Archivio Android offline-first per scontrini e garanzie.
 
 ## Stato progetto
-Fase 8 — database locale Room integrato e collegato alla conferma (controllo statico completato; build reale prevista in Fase 16).
+Fase 9 — archivio garanzie integrato sopra Room (controllo statico completato; build reale prevista in Fase 16).
 
 ## Principi
 - Android nativo: Kotlin + Jetpack Compose + Material 3
@@ -86,7 +86,23 @@ Fase 8 — database locale Room integrato e collegato alla conferma (controllo s
    - schema export Room configurato per le future migrazioni
    - test strumentali con database Room in memoria, persistenza completa e `CASCADE`
    - nessuna UI archivio anticipata: resta alla Fase 9
-9. Archivio garanzie
+9. ✅ Archivio garanzie
+   - accesso diretto dalla Home con pulsante `Apri archivio`
+   - elenco scontrini alimentato in tempo reale dal `Flow` Room già esistente
+   - card archivio con negozio, data, totale, numero prodotti e pagine
+   - anteprima dei primi prodotti direttamente nella card
+   - ricerca unica su negozio, nome prodotto, numero documento, P.IVA e testo OCR
+   - ricerca anche tramite data nel formato italiano `gg/mm/aaaa`
+   - filtro intervallo date `Dal` / `Al` con validazione strict
+   - intervalli invertiti o date impossibili vengono segnalati e non producono risultati
+   - ordinamento `Più recenti` / `Più vecchi`
+   - filtri mantenuti quando si apre un dettaglio e si torna all'archivio
+   - dettaglio scontrino con dati acquisto e lista prodotti ordinata
+   - visualizzazione di tutte le immagini originali dello scontrino
+   - visualizzazione del testo OCR originale conservato nel database
+   - schermata vuota e stato `nessun risultato` gestiti
+   - test unitari su ricerca, prodotto, documento, data, intervalli e ordinamento
+   - nessuna `scheda prodotto` dedicata anticipata: resta alla Fase 10
 10. Scheda prodotto
 11. Barcode / EAN
 12. Motore garanzie e notifiche
