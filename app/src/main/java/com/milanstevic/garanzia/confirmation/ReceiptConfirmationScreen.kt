@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ReceiptConfirmationScreen(
     draft: ReceiptConfirmationDraft,
+    isSaving: Boolean,
+    saveError: String?,
     onDraftChange: (ReceiptConfirmationDraft) -> Unit,
     onConfirm: () -> Unit,
     onBack: () -> Unit,
@@ -39,6 +41,21 @@ fun ReceiptConfirmationScreen(
                 text = "Conferma scontrino",
                 style = MaterialTheme.typography.headlineSmall,
             )
+
+            if (isSaving) {
+                Text(
+                    text = "Salvataggio nel database locale…",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+
+            saveError?.let { message ->
+                Text(
+                    text = "Salvataggio non riuscito: $message",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
 
             if (draft.attentionCount > 0) {
                 Text(
@@ -278,10 +295,10 @@ fun ReceiptConfirmationScreen(
 
                 Button(
                     onClick = onConfirm,
-                    enabled = draft.canConfirm,
+                    enabled = draft.canConfirm && !isSaving,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text("Conferma scontrino")
+                    Text(if (isSaving) "Salvataggio…" else "Conferma scontrino")
                 }
             }
 
