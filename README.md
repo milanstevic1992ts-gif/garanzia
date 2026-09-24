@@ -3,7 +3,7 @@
 Archivio Android offline-first per scontrini e garanzie.
 
 ## Stato progetto
-Fase 4 — interpretazione intelligente dello scontrino integrata (controllo statico completato; build reale prevista in Fase 16).
+Fase 5 — confidence e anti-allucinazione integrati (controllo statico completato; build reale prevista in Fase 16).
 
 ## Principi
 - Android nativo: Kotlin + Jetpack Compose + Material 3
@@ -13,7 +13,7 @@ Fase 4 — interpretazione intelligente dello scontrino integrata (controllo sta
 - Scontrino originale sempre conservato
 - OCR e interpretazione eseguiti localmente
 - Nessun backend nella prima versione
-- I dati mancanti non vengono inventati: se un campo non è ricavabile dal testo OCR resta vuoto
+- I dati mancanti non vengono inventati: se un campo non è ricavabile dal testo OCR resta vuoto\n- Ogni campo interpretato conserva confidence, livello e riga OCR di evidenza\n- I valori sotto la soglia minima di affidabilità vengono scartati
 
 ## Roadmap
 1. ✅ Fondamenta Android
@@ -33,7 +33,7 @@ Fase 4 — interpretazione intelligente dello scontrino integrata (controllo sta
    - metodo di pagamento
    - nessuna suddivisione dei prodotti in questa fase
    - test unitari sui casi italiani principali
-5. Confidence e anti-allucinazione
+5. ✅ Confidence e anti-allucinazione\n   - confidence per singolo campo combinando affidabilità OCR e forza della regola semantica\n   - livelli Alta / Media / Bassa\n   - evidenza OCR conservata per ogni valore estratto\n   - soglia minima: i valori troppo deboli non vengono mostrati\n   - subtotal, IVA e resto non possono essere promossi arbitrariamente a totale\n   - carta fedeltà non viene confusa con metodo di pagamento\n   - segnalazione di verifica consigliata quando mancano campi importanti o la confidence è bassa\n   - test unitari dedicati ai casi anti-allucinazione
 6. Comprensione multi-prodotto
 7. Conferma intelligente
 8. Database locale completo
