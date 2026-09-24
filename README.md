@@ -3,7 +3,7 @@
 Archivio Android offline-first per scontrini e garanzie.
 
 ## Stato progetto
-Fase 6 — comprensione multi-prodotto integrata (controllo statico completato; build reale prevista in Fase 16).
+Fase 7 — conferma intelligente integrata (controllo statico completato; build reale prevista in Fase 16).
 
 ## Principi
 - Android nativo: Kotlin + Jetpack Compose + Material 3
@@ -56,7 +56,18 @@ Fase 6 — comprensione multi-prodotto integrata (controllo statico completato; 
    - prefissi come `ARTICOLO` / `PRODOTTO` puliti senza perdere il nome reale
    - barcode/EAN volutamente rimandati alla Fase 11
    - test unitari multi-prodotto e test di integrazione nel risultato scontrino
-7. Conferma intelligente
+7. ✅ Conferma intelligente
+   - schermata dedicata dopo OCR e interpretazione
+   - campi con confidence bassa o mancanti evidenziati come `Da verificare`
+   - i campi affidabili restano precompilati senza obbligare a ricontrollare tutto
+   - modifica manuale di negozio, data, ora, totale, valuta, P.IVA, documento e pagamento
+   - modifica manuale di nome prodotto, quantità, prezzo unitario e importo riga
+   - possibilità di rimuovere falsi prodotti OCR
+   - possibilità di aggiungere prodotti mancanti manualmente
+   - validazione stretta della data e degli importi prima della conferma
+   - gli indicatori `Da verificare` si risolvono dopo una correzione manuale
+   - conferma mantenuta solo nella sessione: nessun salvataggio database anticipato
+   - test unitari del modello di conferma e delle validazioni
 8. Database locale completo
 9. Archivio garanzie
 10. Scheda prodotto
