@@ -40,6 +40,7 @@ data class ReceiptEntity(
     indices = [
         Index(value = ["receiptId"]),
         Index(value = ["name"]),
+        Index(value = ["receiptId", "position"], unique = true),
     ],
 )
 data class ReceiptProductEntity(
@@ -63,7 +64,10 @@ data class ReceiptProductEntity(
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index(value = ["receiptId"])],
+    indices = [
+        Index(value = ["receiptId"]),
+        Index(value = ["receiptId", "pageIndex"], unique = true),
+    ],
 )
 data class ReceiptPageEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
