@@ -233,6 +233,8 @@ class ReceiptProductInterpreter {
         if (VAT_REGEX.containsMatchIn(line) || DOCUMENT_REGEX.containsMatchIn(line)) return true
         if (ADDRESS_REGEX.containsMatchIn(line)) return true
         if (FOOTER_METADATA_REGEX.containsMatchIn(line)) return true
+        if (REGISTER_METADATA_REGEX.containsMatchIn(line)) return true
+        if (TIME_METADATA_REGEX.containsMatchIn(line)) return true
         if (PAYMENT_METADATA_REGEX.containsMatchIn(line)) return true
         if (
             CARD_WORD_REGEX.containsMatchIn(line) &&
@@ -350,7 +352,17 @@ class ReceiptProductInterpreter {
 
         val FOOTER_METADATA_REGEX =
             Regex(
-                """\b(TOTALE|SUBTOTALE|IVA|IMPONIBILE|RESTO|DOCUMENTO|SCONTRINO|RICEVUTA|GRAZIE|ARRIVEDERCI|OPERATORE|CASSA|DATA|ORA)\b""",
+                """\b(TOTALE|SUBTOTALE|IVA|IMPONIBILE|RESTO|SCONTO|DOCUMENTO|SCONTRINO|RICEVUTA|GRAZIE|ARRIVEDERCI)\b""",
+                RegexOption.IGNORE_CASE,
+            )
+        val REGISTER_METADATA_REGEX =
+            Regex(
+                """^\s*(?:CASSA|OPERATORE)\s*[:#\-]?\s*\d+\b""",
+                RegexOption.IGNORE_CASE,
+            )
+        val TIME_METADATA_REGEX =
+            Regex(
+                """^\s*(?:ORA|TIME)\s*[:\-]?\s*(?:[01]?\d|2[0-3])[:.]\d{2}\b""",
                 RegexOption.IGNORE_CASE,
             )
         val PAYMENT_METADATA_REGEX =
