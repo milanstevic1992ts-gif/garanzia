@@ -294,6 +294,7 @@ private fun GaranziaApp(
                                         receiptRepository.saveConfirmedReceipt(
                                             draft = draft,
                                             originalUris = currentOriginalUris,
+                                            rawOcrText = ocrResult?.rawText,
                                         )
                                     }
                                     lastConfirmedProducts = draft.products.size
