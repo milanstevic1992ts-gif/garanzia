@@ -287,7 +287,7 @@ fun ReceiptConfirmationScreen(
 
             if (!draft.canConfirm) {
                 Text(
-                    text = "Per confermare servono almeno negozio, data valida, totale valido e nomi prodotto non vuoti.",
+                    text = "Per confermare servono negozio, data valida, totale valido e almeno un prodotto con nome valido.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
