@@ -51,6 +51,7 @@ data class ReceiptInterpretation(
     val vatNumber: InterpretedField<String>?,
     val documentNumber: InterpretedField<String>?,
     val paymentMethod: InterpretedField<ReceiptPaymentMethod>?,
+    val products: List<InterpretedField<ReceiptProduct>>,
 ) {
     val hasStructuredData: Boolean
         get() =
@@ -61,7 +62,8 @@ data class ReceiptInterpretation(
                 currency != null ||
                 vatNumber != null ||
                 documentNumber != null ||
-                paymentMethod != null
+                paymentMethod != null ||
+                products.isNotEmpty()
 
     val needsReview: Boolean
         get() =
@@ -77,7 +79,8 @@ data class ReceiptInterpretation(
                     vatNumber?.confidence,
                     documentNumber?.confidence,
                     paymentMethod?.confidence,
-                ).filterNotNull().any { it < 0.70f }
+                ).filterNotNull().any { it < 0.70f } ||
+                products.any { it.confidence < 0.70f }
 }
 
 /**
@@ -87,10 +90,13 @@ data class ReceiptInterpretation(
  * score built from OCR confidence + deterministic semantic rules. Values below
  * the minimum acceptance threshold are discarded instead of being guessed.
  *
- * Product splitting remains deliberately out of scope until Phase 6.
+ * Phase 6 adds conservative multi-product extraction while keeping every
+ * product tied to OCR evidence and the same confidence rules.
  */
 @Singleton
 class ReceiptInterpreter @Inject constructor() {
+
+    private val productInterpreter = ReceiptProductInterpreter()
 
     fun interpret(receipt: OcrReceiptResult): ReceiptInterpretation {
         val lines = receipt.pages
@@ -109,9 +115,10 @@ class ReceiptInterpreter @Inject constructor() {
             }
 
         val datedLine = findDatedLine(lines)
+        val merchant = findMerchant(lines)
 
         return ReceiptInterpretation(
-            merchant = findMerchant(lines),
+            merchant = merchant,
             purchaseDate = datedLine?.field,
             purchaseTime = findPurchaseTime(lines, datedLine),
             totalAmount = findTotal(lines),
@@ -119,6 +126,10 @@ class ReceiptInterpreter @Inject constructor() {
             vatNumber = findVatNumber(lines),
             documentNumber = findDocumentNumber(lines),
             paymentMethod = findPaymentMethod(lines),
+            products = productInterpreter.interpret(
+                receipt = receipt,
+                merchantEvidence = merchant?.evidence,
+            ),
         )
     }
 
