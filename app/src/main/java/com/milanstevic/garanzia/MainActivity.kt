@@ -21,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.milanstevic.garanzia.archive.ReceiptArchiveDetailScreen
+import com.milanstevic.garanzia.archive.ReceiptArchiveScreen
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationScreen
 import com.milanstevic.garanzia.data.ReceiptRepository
@@ -80,6 +82,8 @@ private enum class AppScreen {
     REVIEW,
     OCR,
     CONFIRM,
+    ARCHIVE,
+    ARCHIVE_DETAIL,
 }
 
 @Composable
@@ -98,6 +102,9 @@ private fun GaranziaApp(
     var currentOriginalUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     val receiptCountFlow = remember(receiptRepository) { receiptRepository.observeReceiptCount() }
     val savedReceiptCount by receiptCountFlow.collectAsState(initial = 0)
+    val archiveReceiptsFlow = remember(receiptRepository) { receiptRepository.observeReceipts() }
+    val archiveReceipts by archiveReceiptsFlow.collectAsState(initial = emptyList())
+    var selectedArchiveReceiptId by remember { mutableStateOf<String?>(null) }
 
     var ocrStatus by remember { mutableStateOf("Preparazione OCR") }
     var ocrProgress by remember { mutableStateOf<Int?>(null) }
@@ -202,6 +209,7 @@ private fun GaranziaApp(
     when (screen) {
         AppScreen.HOME -> HomeScreen(
             onScanReceipt = ::startScan,
+            onOpenArchive = { screen = AppScreen.ARCHIVE },
             lastSavedPages = lastSavedPages,
             lastConfirmedProducts = lastConfirmedProducts,
             savedReceiptCount = savedReceiptCount,
@@ -318,6 +326,45 @@ private fun GaranziaApp(
                     onBack = {
                         saveReceiptError = null
                         screen = AppScreen.OCR
+                    },
+                )
+            }
+        }
+
+        AppScreen.ARCHIVE -> ReceiptArchiveScreen(
+            receipts = archiveReceipts,
+            onOpenReceipt = { receiptId ->
+                selectedArchiveReceiptId = receiptId
+                screen = AppScreen.ARCHIVE_DETAIL
+            },
+            onBack = {
+                selectedArchiveReceiptId = null
+                screen = AppScreen.HOME
+            },
+        )
+
+        AppScreen.ARCHIVE_DETAIL -> {
+            val details = archiveReceipts.firstOrNull {
+                it.receipt.id == selectedArchiveReceiptId
+            }
+
+            if (details != null) {
+                ReceiptArchiveDetailScreen(
+                    details = details,
+                    onBack = {
+                        selectedArchiveReceiptId = null
+                        screen = AppScreen.ARCHIVE
+                    },
+                )
+            } else {
+                ReceiptArchiveScreen(
+                    receipts = archiveReceipts,
+                    onOpenReceipt = { receiptId ->
+                        selectedArchiveReceiptId = receiptId
+                    },
+                    onBack = {
+                        selectedArchiveReceiptId = null
+                        screen = AppScreen.HOME
                     },
                 )
             }
