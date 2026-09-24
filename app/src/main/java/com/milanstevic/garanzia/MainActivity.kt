@@ -267,6 +267,7 @@ private fun GaranziaApp(
                 ocrResult = null
                 interpretation = null
                 confirmationDraft = null
+                currentOriginalUris = emptyList()
                 ocrError = null
                 ocrProgress = null
                 screen = AppScreen.HOME
