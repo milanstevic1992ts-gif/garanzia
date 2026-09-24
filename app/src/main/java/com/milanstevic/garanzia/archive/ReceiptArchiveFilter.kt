@@ -22,6 +22,16 @@ data class ArchiveFilterState(
             (fromDate.isNotBlank() && parseItalianDate(fromDate) == null) ||
                 (toDate.isNotBlank() && parseItalianDate(toDate) == null)
 
+    val hasInvalidRange: Boolean
+        get() {
+            val from = parseItalianDate(fromDate) ?: return false
+            val to = parseItalianDate(toDate) ?: return false
+            return from.isAfter(to)
+        }
+
+    val isValid: Boolean
+        get() = !hasInvalidDate && !hasInvalidRange
+
     companion object {
         private val ITALIAN_DATE_FORMAT = DateTimeFormatter
             .ofPattern("dd/MM/uuuu")
@@ -42,6 +52,8 @@ object ReceiptArchiveFilter {
         receipts: List<ReceiptWithDetails>,
         state: ArchiveFilterState,
     ): List<ReceiptWithDetails> {
+        if (!state.isValid) return emptyList()
+
         val query = state.query.trim().lowercase()
         val from = ArchiveFilterState.parseItalianDate(state.fromDate)
         val to = ArchiveFilterState.parseItalianDate(state.toDate)
@@ -88,6 +100,14 @@ object ReceiptArchiveFilter {
             append(' ')
             append(details.receipt.purchaseDate)
             append(' ')
+            runCatching {
+                LocalDate
+                    .parse(details.receipt.purchaseDate)
+                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+            }.getOrNull()?.let {
+                append(it)
+                append(' ')
+            }
             append(details.receipt.documentNumber.orEmpty())
             append(' ')
             append(details.receipt.vatNumber.orEmpty())
