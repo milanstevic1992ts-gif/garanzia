@@ -20,6 +20,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
+import com.milanstevic.garanzia.confirmation.ReceiptConfirmationScreen
 import com.milanstevic.garanzia.intelligence.ReceiptInterpretation
 import com.milanstevic.garanzia.intelligence.ReceiptInterpreter
 import com.milanstevic.garanzia.ocr.OcrReceiptResult
@@ -71,6 +73,7 @@ private enum class AppScreen {
     CAMERA,
     REVIEW,
     OCR,
+    CONFIRM,
 }
 
 @Composable
@@ -90,6 +93,8 @@ private fun GaranziaApp(
     var ocrProgress by remember { mutableStateOf<Int?>(null) }
     var ocrResult by remember { mutableStateOf<OcrReceiptResult?>(null) }
     var interpretation by remember { mutableStateOf<ReceiptInterpretation?>(null) }
+    var confirmationDraft by remember { mutableStateOf<ReceiptConfirmationDraft?>(null) }
+    var lastConfirmedProducts by remember { mutableStateOf<Int?>(null) }
     var ocrError by remember { mutableStateOf<String?>(null) }
 
     fun showReview(uris: List<Uri>) {
@@ -108,6 +113,7 @@ private fun GaranziaApp(
         ocrProgress = null
         ocrResult = null
         interpretation = null
+        confirmationDraft = null
         ocrError = null
         screen = AppScreen.OCR
 
@@ -183,6 +189,7 @@ private fun GaranziaApp(
         AppScreen.HOME -> HomeScreen(
             onScanReceipt = ::startScan,
             lastSavedPages = lastSavedPages,
+            lastConfirmedProducts = lastConfirmedProducts,
         )
 
         AppScreen.CAMERA -> {
@@ -234,13 +241,45 @@ private fun GaranziaApp(
             result = ocrResult,
             interpretation = interpretation,
             error = ocrError,
+            onReview = {
+                val interpreted = interpretation
+                if (interpreted != null) {
+                    confirmationDraft = ReceiptConfirmationDraft.from(interpreted)
+                    screen = AppScreen.CONFIRM
+                }
+            },
             onDone = {
                 ocrResult = null
                 interpretation = null
+                confirmationDraft = null
                 ocrError = null
                 ocrProgress = null
                 screen = AppScreen.HOME
             },
         )
+
+        AppScreen.CONFIRM -> {
+            val draft = confirmationDraft
+            if (draft != null) {
+                ReceiptConfirmationScreen(
+                    draft = draft,
+                    onDraftChange = { confirmationDraft = it },
+                    onConfirm = {
+                        lastConfirmedProducts = draft.products.size
+                        ocrResult = null
+                        interpretation = null
+                        confirmationDraft = null
+                        ocrError = null
+                        ocrProgress = null
+                        screen = AppScreen.HOME
+                    },
+                    onBack = {
+                        screen = AppScreen.OCR
+                    },
+                )
+            } else {
+                screen = AppScreen.OCR
+            }
+        }
     }
 }
