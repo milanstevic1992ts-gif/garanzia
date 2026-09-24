@@ -48,6 +48,7 @@ class ReceiptRepositoryRoomTest {
                 Uri.parse("file:///receipt/page1.jpg"),
                 Uri.parse("file:///receipt/page2.jpg"),
             ),
+            rawOcrText = "FERRAMENTA ROSSI SRL\\nTRAPANO BOSCH 99,90",
             confirmedAtEpochMs = 1_000L,
         )
 
@@ -57,6 +58,7 @@ class ReceiptRepositoryRoomTest {
         assertEquals("FERRAMENTA ROSSI SRL", stored.receipt.merchant)
         assertEquals("2026-09-24", stored.receipt.purchaseDate)
         assertEquals("149.80", stored.receipt.totalAmount)
+        assertEquals("FERRAMENTA ROSSI SRL\\nTRAPANO BOSCH 99,90", stored.receipt.rawOcrText)
         assertEquals(2, stored.products.size)
         assertEquals("TRAPANO BOSCH", stored.products.minBy { it.position }.name)
         assertEquals(2, stored.pages.size)
@@ -68,6 +70,7 @@ class ReceiptRepositoryRoomTest {
         val receiptId = repository.saveConfirmedReceipt(
             draft = validDraft(),
             originalUris = listOf(Uri.parse("file:///receipt/page1.jpg")),
+            rawOcrText = "OCR TEST",
             confirmedAtEpochMs = 1_000L,
         )
 
