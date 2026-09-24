@@ -16,10 +16,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.milanstevic.garanzia.data.local.ReceiptWithDetails
@@ -30,13 +26,12 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ReceiptArchiveScreen(
     receipts: List<ReceiptWithDetails>,
+    filters: ArchiveFilterState,
+    onFiltersChange: (ArchiveFilterState) -> Unit,
     onOpenReceipt: (String) -> Unit,
     onBack: () -> Unit,
 ) {
-    var filters by remember { mutableStateOf(ArchiveFilterState()) }
-    val filtered = remember(receipts, filters) {
-        ReceiptArchiveFilter.apply(receipts, filters)
-    }
+    val filtered = ReceiptArchiveFilter.apply(receipts, filters)
 
     Scaffold { innerPadding ->
         Column(
@@ -67,7 +62,7 @@ fun ReceiptArchiveScreen(
 
             OutlinedTextField(
                 value = filters.query,
-                onValueChange = { filters = filters.copy(query = it) },
+                onValueChange = { onFiltersChange(filters.copy(query = it)) },
                 label = { Text("Cerca negozio, prodotto o documento") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -79,7 +74,7 @@ fun ReceiptArchiveScreen(
             ) {
                 OutlinedTextField(
                     value = filters.fromDate,
-                    onValueChange = { filters = filters.copy(fromDate = it) },
+                    onValueChange = { onFiltersChange(filters.copy(fromDate = it)) },
                     label = { Text("Dal") },
                     supportingText = { Text("gg/mm/aaaa") },
                     isError =
@@ -91,7 +86,7 @@ fun ReceiptArchiveScreen(
 
                 OutlinedTextField(
                     value = filters.toDate,
-                    onValueChange = { filters = filters.copy(toDate = it) },
+                    onValueChange = { onFiltersChange(filters.copy(toDate = it)) },
                     label = { Text("Al") },
                     supportingText = { Text("gg/mm/aaaa") },
                     isError =
@@ -108,13 +103,15 @@ fun ReceiptArchiveScreen(
             ) {
                 Button(
                     onClick = {
-                        filters = filters.copy(
-                            sort =
-                                if (filters.sort == ArchiveSort.NEWEST) {
-                                    ArchiveSort.OLDEST
-                                } else {
-                                    ArchiveSort.NEWEST
-                                },
+                        onFiltersChange(
+                            filters.copy(
+                                sort =
+                                    if (filters.sort == ArchiveSort.NEWEST) {
+                                        ArchiveSort.OLDEST
+                                    } else {
+                                        ArchiveSort.NEWEST
+                                    },
+                            ),
                         )
                     },
                     modifier = Modifier.weight(1f),
@@ -129,7 +126,7 @@ fun ReceiptArchiveScreen(
                 }
 
                 OutlinedButton(
-                    onClick = { filters = ArchiveFilterState() },
+                    onClick = { onFiltersChange(ArchiveFilterState()) },
                     modifier = Modifier.weight(1f),
                 ) {
                     Text("Azzera filtri")
@@ -144,10 +141,13 @@ fun ReceiptArchiveScreen(
             } else if (filtered.isEmpty()) {
                 Text(
                     text =
-                        if (filters.hasInvalidDate) {
-                            "Correggi il formato delle date per applicare il filtro."
-                        } else {
-                            "Nessuno scontrino corrisponde ai filtri."
+                        when {
+                            filters.hasInvalidDate ->
+                                "Correggi il formato delle date per applicare il filtro."
+                            filters.hasInvalidRange ->
+                                "La data iniziale non può essere successiva alla data finale."
+                            else ->
+                                "Nessuno scontrino corrisponde ai filtri."
                         },
                     style = MaterialTheme.typography.bodyLarge,
                 )
