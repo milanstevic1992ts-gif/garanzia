@@ -5,6 +5,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import java.time.format.ResolverStyle
 
 enum class ConfirmationField {
     MERCHANT,
@@ -57,7 +58,9 @@ data class ReceiptConfirmationDraft(
 
     companion object {
         private const val REVIEW_THRESHOLD = 0.70f
-        private val DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        private val DATE_FORMAT = DateTimeFormatter
+            .ofPattern("dd/MM/uuuu")
+            .withResolverStyle(ResolverStyle.STRICT)
 
         fun from(
             interpretation: ReceiptInterpretation,
