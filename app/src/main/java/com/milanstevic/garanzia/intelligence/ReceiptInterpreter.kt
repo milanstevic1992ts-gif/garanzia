@@ -84,7 +84,7 @@ data class ReceiptInterpretation(
 }
 
 /**
- * Phase 5 receipt interpreter.
+ * Phase 6 receipt interpreter.
  *
  * Every accepted value is tied to real OCR evidence and receives a confidence
  * score built from OCR confidence + deterministic semantic rules. Values below
