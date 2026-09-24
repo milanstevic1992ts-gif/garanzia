@@ -126,6 +126,39 @@ class ReceiptProductInterpreterTest {
         assertNull(product.lineTotal)
     }
 
+
+    @Test
+    fun cartaAbrasivaRemainsAProductNotPaymentMetadata() {
+        val products = interpreter.interpret(
+            receipt = receiptOf(
+                line("FERRAMENTA TEST SRL"),
+                line("CARTA ABRASIVA GRANA 120 6,90"),
+                line("TOTALE 6,90 €"),
+            ),
+            merchantEvidence = "FERRAMENTA TEST SRL",
+        )
+
+        assertEquals(1, products.size)
+        assertEquals("CARTA ABRASIVA GRANA 120", products.single().value.name)
+    }
+
+    @Test
+    fun acceptsArticlePrefixAndPieceQuantity() {
+        val products = interpreter.interpret(
+            receipt = receiptOf(
+                line("FERRAMENTA TEST SRL"),
+                line("ARTICOLO 2 PZ GUANTI LAVORO 12,00"),
+                line("TOTALE 12,00 €"),
+            ),
+            merchantEvidence = "FERRAMENTA TEST SRL",
+        )
+
+        val product = products.single().value
+        assertEquals("GUANTI LAVORO", product.name)
+        assertEquals(BigDecimal("2"), product.quantity)
+        assertEquals(BigDecimal("12.00"), product.lineTotal)
+    }
+
     private fun line(
         text: String,
         confidence: Float = 0.95f,
