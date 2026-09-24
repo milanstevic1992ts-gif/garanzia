@@ -277,8 +277,6 @@ private fun GaranziaApp(
                         screen = AppScreen.OCR
                     },
                 )
-            } else {
-                screen = AppScreen.OCR
             }
         }
     }
