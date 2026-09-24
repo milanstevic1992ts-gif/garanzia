@@ -1,6 +1,5 @@
 package com.milanstevic.garanzia.confirmation
 
-import com.milanstevic.garanzia.intelligence.ConfidenceLevel
 import com.milanstevic.garanzia.intelligence.InterpretedField
 import com.milanstevic.garanzia.intelligence.ReceiptInterpretation
 import com.milanstevic.garanzia.intelligence.ReceiptPaymentMethod
