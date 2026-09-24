@@ -22,6 +22,7 @@ class ReceiptRepository @Inject constructor(
     suspend fun saveConfirmedReceipt(
         draft: ReceiptConfirmationDraft,
         originalUris: List<Uri>,
+        rawOcrText: String?,
         confirmedAtEpochMs: Long = System.currentTimeMillis(),
     ): String {
         require(draft.canConfirm) { "Receipt confirmation is not valid" }
@@ -44,6 +45,7 @@ class ReceiptRepository @Inject constructor(
             vatNumber = draft.vatNumber.trim().ifBlank { null },
             documentNumber = draft.documentNumber.trim().ifBlank { null },
             paymentMethod = draft.paymentMethod.trim().ifBlank { null },
+            rawOcrText = rawOcrText?.trim()?.ifBlank { null },
             confirmedAtEpochMs = confirmedAtEpochMs,
         )
 
