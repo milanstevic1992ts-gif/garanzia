@@ -97,7 +97,7 @@ class ReceiptProductInterpreter {
             ?: return null
 
         val quantityAndUnit = parseQuantityAndUnitPrice(source.text)
-        val quantity = quantityAndUnit?.first
+        val quantity = quantityAndUnit?.first ?: parsePieceQuantity(source.text)
         val unitPrice = quantityAndUnit?.second
 
         val lineTotal = when {
@@ -138,7 +138,7 @@ class ReceiptProductInterpreter {
         if (amounts.isEmpty()) return null
 
         val quantityAndUnit = parseQuantityAndUnitPrice(detailLine.text)
-        val quantity = quantityAndUnit?.first
+        val quantity = quantityAndUnit?.first ?: parsePieceQuantity(detailLine.text)
         val unitPrice = quantityAndUnit?.second
 
         val lineTotal = when {
@@ -187,7 +187,9 @@ class ReceiptProductInterpreter {
 
     private fun extractProductName(line: String): String? {
         var value = line
+        value = PRODUCT_LABEL_PREFIX_REGEX.replace(value, "")
         value = QUANTITY_X_PRICE_REGEX.replace(value, " ")
+        value = PIECE_QUANTITY_PREFIX_REGEX.replace(value, "")
         value = MONEY_TOKEN_REGEX.replace(value, " ")
         value = CURRENCY_REGEX.replace(value, " ")
         value = value
@@ -198,7 +200,9 @@ class ReceiptProductInterpreter {
     }
 
     private fun cleanNameOnlyLine(line: String): String =
-        line.trim(' ', '-', ':', ';', '|', '*')
+        PRODUCT_LABEL_PREFIX_REGEX
+            .replace(line, "")
+            .trim(' ', '-', ':', ';', '|', '*')
 
     private fun looksLikeProductName(value: String): Boolean {
         if (value.length !in 2..100) return false
@@ -230,8 +234,12 @@ class ReceiptProductInterpreter {
         if (DATE_REGEX.containsMatchIn(line) || ISO_DATE_REGEX.containsMatchIn(line)) return true
         if (VAT_REGEX.containsMatchIn(line) || DOCUMENT_REGEX.containsMatchIn(line)) return true
         if (ADDRESS_REGEX.containsMatchIn(line)) return true
-        if (TOTAL_OR_FOOTER_WORDS.any(normalized::contains)) return true
-        if (PAYMENT_WORDS.any(normalized::contains)) return true
+        if (FOOTER_METADATA_REGEX.containsMatchIn(line)) return true
+        if (PAYMENT_METADATA_REGEX.containsMatchIn(line)) return true
+        if (
+            CARD_WORD_REGEX.containsMatchIn(line) &&
+            CARD_PAYMENT_CONTEXT_REGEX.containsMatchIn(line)
+        ) return true
         if (BARCODE_ONLY_REGEX.matches(line.replace(" ", ""))) return true
 
         return false
@@ -247,6 +255,12 @@ class ReceiptProductInterpreter {
                 ?: return@let null
             quantity to unitPrice
         }
+
+    private fun parsePieceQuantity(line: String): BigDecimal? =
+        PIECE_QUANTITY_PREFIX_REGEX.find(line)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.let { parseDecimal(it, allowInteger = true) }
 
     private fun moneyValues(line: String): List<BigDecimal> =
         MONEY_REGEX.findAll(line).mapNotNull { match ->
@@ -306,6 +320,10 @@ class ReceiptProductInterpreter {
             Regex(
                 """(?<!\d)(\d+(?:[,.]\d+)?)\s*[xX]\s*((?:\d{1,3}(?:[.\s]\d{3})*|\d+)[,.]\d{2})(?!\d)""",
             )
+        val PIECE_QUANTITY_PREFIX_REGEX =
+            Regex("""^\s*(\d+(?:[,.]\d+)?)\s*(?:PZ\.?|PEZZI)\s+""", RegexOption.IGNORE_CASE)
+        val PRODUCT_LABEL_PREFIX_REGEX =
+            Regex("""^\s*(?:ARTICOLO|ART\.?|PRODOTTO)\s*[:\-]?\s*""", RegexOption.IGNORE_CASE)
         val CURRENCY_REGEX =
             Regex("""(?:€|£|\$|\bEUR\b|\bUSD\b|\bGBP\b)""", RegexOption.IGNORE_CASE)
 
@@ -330,38 +348,20 @@ class ReceiptProductInterpreter {
             )
         val BARCODE_ONLY_REGEX = Regex("""\d{8,14}""")
 
-        val TOTAL_OR_FOOTER_WORDS = listOf(
-            "totale",
-            "subtotale",
-            "sub totale",
-            "iva",
-            "imponibile",
-            "resto",
-            "sconto totale",
-            "documento",
-            "scontrino",
-            "ricevuta",
-            "grazie",
-            "arrivederci",
-            "operatore",
-            "cassa",
-            "data",
-            "ora",
-        )
-
-        val PAYMENT_WORDS = listOf(
-            "pagamento",
-            "pagato",
-            "contanti",
-            "carta",
-            "bancomat",
-            "pagobancomat",
-            "visa",
-            "mastercard",
-            "maestro",
-            "bonifico",
-            "cash",
-        )
+        val FOOTER_METADATA_REGEX =
+            Regex(
+                """\b(TOTALE|SUBTOTALE|IVA|IMPONIBILE|RESTO|DOCUMENTO|SCONTRINO|RICEVUTA|GRAZIE|ARRIVEDERCI|OPERATORE|CASSA|DATA|ORA)\b""",
+                RegexOption.IGNORE_CASE,
+            )
+        val PAYMENT_METADATA_REGEX =
+            Regex(
+                """\b(PAGAMENTO|PAGATO|CONTANTI|BANCOMAT|PAGOBANCOMAT|VISA|MASTERCARD|MAESTRO|BONIFICO|CASH)\b""",
+                RegexOption.IGNORE_CASE,
+            )
+        val CARD_WORD_REGEX =
+            Regex("""\bCARTA\b""", RegexOption.IGNORE_CASE)
+        val CARD_PAYMENT_CONTEXT_REGEX =
+            Regex("""\b(PAGAMENTO|PAGATO|CREDITO|DEBITO|POS)\b""", RegexOption.IGNORE_CASE)
 
         val PRODUCT_STOP_WORDS = listOf(
             "descrizione",
