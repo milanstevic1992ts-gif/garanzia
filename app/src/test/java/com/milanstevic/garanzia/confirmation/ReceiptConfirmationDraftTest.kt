@@ -42,6 +42,21 @@ class ReceiptConfirmationDraftTest {
     }
 
     @Test
+    fun missingProductBlocksConfirmation() {
+        val draft = ReceiptConfirmationDraft.from(
+            interpretation(
+                merchant = field("NEGOZIO TEST SRL", 0.95f),
+                date = field(LocalDate.of(2026, 9, 24), 0.95f),
+                total = field(BigDecimal("99.90"), 0.95f),
+                products = emptyList(),
+            ),
+        )
+
+        assertEquals(1, draft.attentionCount)
+        assertFalse(draft.canConfirm)
+    }
+
+    @Test
     fun missingRequiredFieldsAreFlaggedAndBlockConfirmation() {
         val draft = ReceiptConfirmationDraft.from(
             interpretation(
