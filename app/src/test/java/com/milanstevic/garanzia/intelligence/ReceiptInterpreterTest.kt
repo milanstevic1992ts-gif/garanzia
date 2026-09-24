@@ -8,6 +8,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReceiptInterpreterTest {
@@ -15,51 +16,56 @@ class ReceiptInterpreterTest {
     private val interpreter = ReceiptInterpreter()
 
     @Test
-    fun interpretsTypicalItalianReceipt() {
+    fun interpretsTypicalItalianReceiptWithConfidenceAndEvidence() {
         val result = interpreter.interpret(
             receiptOf(
-                "MEDIAWORLD S.P.A.",
-                "Via Example 12",
-                "P.IVA IT12345678901",
-                "DOCUMENTO COMMERCIALE N. 1234-5678",
-                "DATA 22/09/2026 ORA 18:43",
-                "SUBTOTALE 899,00",
-                "TOTALE € 899,00",
-                "PAGAMENTO VISA",
+                line("MEDIAWORLD S.P.A."),
+                line("Via Example 12"),
+                line("P.IVA IT12345678901"),
+                line("DOCUMENTO COMMERCIALE N. 1234-5678"),
+                line("DATA 22/09/2026 ORA 18:43"),
+                line("SUBTOTALE 899,00"),
+                line("TOTALE € 899,00"),
+                line("PAGAMENTO VISA"),
             ),
         )
 
-        assertEquals("MEDIAWORLD S.P.A.", result.merchant)
-        assertEquals(LocalDate.of(2026, 9, 22), result.purchaseDate)
-        assertEquals(LocalTime.of(18, 43), result.purchaseTime)
-        assertEquals(BigDecimal("899.00"), result.totalAmount)
-        assertEquals("EUR", result.currency)
-        assertEquals("IT12345678901", result.vatNumber)
-        assertEquals("1234-5678", result.documentNumber)
-        assertEquals(ReceiptPaymentMethod.CARD, result.paymentMethod)
+        assertEquals("MEDIAWORLD S.P.A.", result.merchant?.value)
+        assertEquals(LocalDate.of(2026, 9, 22), result.purchaseDate?.value)
+        assertEquals(LocalTime.of(18, 43), result.purchaseTime?.value)
+        assertEquals(BigDecimal("899.00"), result.totalAmount?.value)
+        assertEquals("EUR", result.currency?.value)
+        assertEquals("IT12345678901", result.vatNumber?.value)
+        assertEquals("1234-5678", result.documentNumber?.value)
+        assertEquals(ReceiptPaymentMethod.CARD, result.paymentMethod?.value)
+
+        assertEquals("TOTALE € 899,00", result.totalAmount?.evidence)
+        assertEquals(ConfidenceLevel.HIGH, result.totalAmount?.level)
     }
 
     @Test
-    fun prefersGrandTotalOverSubtotalAndVat() {
+    fun prefersGrandTotalOverVatAndNeverPromotesSubtotal() {
         val result = interpreter.interpret(
             receiptOf(
-                "NEGOZIO TEST SRL",
-                "SUBTOTALE 81,97",
-                "TOTALE IVA 18,03",
-                "TOTALE COMPLESSIVO 100,00 EUR",
+                line("NEGOZIO TEST SRL"),
+                line("SUBTOTALE 81,97"),
+                line("TOTALE IVA 18,03"),
+                line("TOTALE COMPLESSIVO 100,00 EUR"),
             ),
         )
 
-        assertEquals(BigDecimal("100.00"), result.totalAmount)
+        assertEquals(BigDecimal("100.00"), result.totalAmount?.value)
+        assertEquals("TOTALE COMPLESSIVO 100,00 EUR", result.totalAmount?.evidence)
     }
 
     @Test
-    fun leavesTotalEmptyWhenNoTotalLabelExists() {
+    fun leavesTotalEmptyWhenOnlySubtotalOrProductPricesExist() {
         val result = interpreter.interpret(
             receiptOf(
-                "NEGOZIO TEST SRL",
-                "ARTICOLO 12,90",
-                "ARTICOLO 42,50",
+                line("NEGOZIO TEST SRL"),
+                line("ARTICOLO 12,90"),
+                line("ARTICOLO 42,50"),
+                line("SUBTOTALE 55,40"),
             ),
         )
 
@@ -70,35 +76,88 @@ class ReceiptInterpreterTest {
     fun acceptsShortItalianDateAndCashPayment() {
         val result = interpreter.interpret(
             receiptOf(
-                "FERRAMENTA ROSSI SNC",
-                "DATA 3-9-26",
-                "ORA 09:07",
-                "TOTALE 1.299,90 €",
-                "CONTANTI",
+                line("FERRAMENTA ROSSI SNC"),
+                line("DATA 3-9-26"),
+                line("ORA 09:07"),
+                line("TOTALE 1.299,90 €"),
+                line("CONTANTI"),
             ),
         )
 
-        assertEquals(LocalDate.of(2026, 9, 3), result.purchaseDate)
-        assertEquals(LocalTime.of(9, 7), result.purchaseTime)
-        assertEquals(BigDecimal("1299.90"), result.totalAmount)
-        assertEquals(ReceiptPaymentMethod.CASH, result.paymentMethod)
+        assertEquals(LocalDate.of(2026, 9, 3), result.purchaseDate?.value)
+        assertEquals(LocalTime.of(9, 7), result.purchaseTime?.value)
+        assertEquals(BigDecimal("1299.90"), result.totalAmount?.value)
+        assertEquals(ReceiptPaymentMethod.CASH, result.paymentMethod?.value)
     }
 
-    private fun receiptOf(vararg lines: String): OcrReceiptResult =
+    @Test
+    fun rejectsFieldsWhenOcrConfidenceIsTooLow() {
+        val result = interpreter.interpret(
+            receiptOf(
+                line("NEGOZIO TEST SRL", confidence = 0.20f),
+                line("DATA 22/09/2026", confidence = 0.20f),
+                line("TOTALE 100,00 €", confidence = 0.20f),
+            ),
+        )
+
+        assertNull(result.merchant)
+        assertNull(result.purchaseDate)
+        assertNull(result.totalAmount)
+    }
+
+    @Test
+    fun loyaltyCardDoesNotBecomePaymentMethod() {
+        val result = interpreter.interpret(
+            receiptOf(
+                line("NEGOZIO TEST SRL"),
+                line("CARTA FEDELTA 123456"),
+                line("DATA 22/09/2026"),
+                line("TOTALE 25,00 €"),
+            ),
+        )
+
+        assertNull(result.paymentMethod)
+    }
+
+    @Test
+    fun lowAcceptedConfidenceRequestsReview() {
+        val result = interpreter.interpret(
+            receiptOf(
+                line("NEGOZIO TEST SRL"),
+                line("DATA 22/09/2026"),
+                line("TOTALE 100,00 €", confidence = 0.55f),
+            ),
+        )
+
+        assertEquals(ConfidenceLevel.LOW, result.totalAmount?.level)
+        assertTrue(result.needsReview)
+    }
+
+    private fun line(
+        text: String,
+        confidence: Float = 0.95f,
+    ) = TestLine(text, confidence)
+
+    private fun receiptOf(vararg lines: TestLine): OcrReceiptResult =
         OcrReceiptResult(
             pages = listOf(
                 OcrPageResult(
                     pageIndex = 0,
                     lines = lines.map {
                         OcrLine(
-                            text = it,
-                            confidence = 0.95f,
+                            text = it.text,
+                            confidence = it.confidence,
                             box = emptyList(),
                         )
                     },
-                    rawText = lines.joinToString("\n"),
+                    rawText = lines.joinToString("\n") { it.text },
                     totalTimeMs = 0,
                 ),
             ),
         )
+
+    private data class TestLine(
+        val text: String,
+        val confidence: Float,
+    )
 }
