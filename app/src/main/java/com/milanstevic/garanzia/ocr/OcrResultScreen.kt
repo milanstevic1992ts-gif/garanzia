@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.milanstevic.garanzia.intelligence.InterpretedField
 import com.milanstevic.garanzia.intelligence.ReceiptInterpretation
 import java.math.BigDecimal
 import java.time.format.DateTimeFormatter
@@ -73,56 +74,72 @@ fun OcrResultScreen(
                     }
 
                     if (interpretation?.hasStructuredData == true) {
-                        interpretation.merchant?.let { value ->
-                            item { InterpretationField("Negozio", value) }
+                        if (interpretation.needsReview) {
+                            item {
+                                Text(
+                                    text = "Verifica consigliata: almeno un dato importante manca o ha affidabilità bassa.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
                         }
-                        interpretation.purchaseDate?.let { value ->
+
+                        interpretation.merchant?.let { field ->
+                            item { InterpretationField("Negozio", field.value, field) }
+                        }
+                        interpretation.purchaseDate?.let { field ->
                             item {
                                 InterpretationField(
                                     "Data acquisto",
-                                    value.format(DATE_FORMAT),
+                                    field.value.format(DATE_FORMAT),
+                                    field,
                                 )
                             }
                         }
-                        interpretation.purchaseTime?.let { value ->
+                        interpretation.purchaseTime?.let { field ->
                             item {
                                 InterpretationField(
                                     "Ora",
-                                    value.format(TIME_FORMAT),
+                                    field.value.format(TIME_FORMAT),
+                                    field,
                                 )
                             }
                         }
-                        interpretation.totalAmount?.let { value ->
+                        interpretation.totalAmount?.let { field ->
                             item {
                                 InterpretationField(
                                     "Totale",
-                                    formatAmount(value, interpretation.currency),
+                                    formatAmount(field.value, interpretation.currency?.value),
+                                    field,
                                 )
                             }
                         }
-                        interpretation.vatNumber?.let { value ->
-                            item { InterpretationField("Partita IVA", value) }
+                        interpretation.currency?.let { field ->
+                            item { InterpretationField("Valuta", field.value, field) }
                         }
-                        interpretation.documentNumber?.let { value ->
-                            item { InterpretationField("Numero documento", value) }
+                        interpretation.vatNumber?.let { field ->
+                            item { InterpretationField("Partita IVA", field.value, field) }
                         }
-                        interpretation.paymentMethod?.let { value ->
+                        interpretation.documentNumber?.let { field ->
+                            item { InterpretationField("Numero documento", field.value, field) }
+                        }
+                        interpretation.paymentMethod?.let { field ->
                             item {
                                 InterpretationField(
                                     "Pagamento",
-                                    value.displayName,
+                                    field.value.displayName,
+                                    field,
                                 )
                             }
                         }
                     } else {
                         item {
                             Text(
-                                text = "Non ho trovato dati strutturati sufficienti. Il testo OCR resta disponibile sotto.",
+                                text = "Non ho trovato dati strutturati abbastanza affidabili. Il testo OCR resta disponibile sotto.",
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
                     }
-
                     item {
                         HorizontalDivider()
                     }
@@ -180,7 +197,10 @@ fun OcrResultScreen(
 private fun InterpretationField(
     label: String,
     value: String,
+    field: InterpretedField<*>,
 ) {
+    val confidence = (field.confidence * 100f).roundToInt()
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -192,6 +212,14 @@ private fun InterpretationField(
         Text(
             text = value,
             style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            text = "Affidabilità: ${field.level.displayName} ($confidence%)",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            text = "Evidenza OCR: ${field.evidence}",
+            style = MaterialTheme.typography.bodySmall,
         )
     }
 }
