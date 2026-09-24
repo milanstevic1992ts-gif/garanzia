@@ -44,6 +44,7 @@ data class ReceiptConfirmationDraft(
             merchant.isNotBlank() &&
                 isValidDate(purchaseDate) &&
                 parseMoney(totalAmount) != null &&
+                products.isNotEmpty() &&
                 products.all { product ->
                     product.name.isNotBlank() &&
                         (product.lineTotal.isBlank() || parseMoney(product.lineTotal) != null) &&
@@ -54,7 +55,8 @@ data class ReceiptConfirmationDraft(
     val attentionCount: Int
         get() =
             fieldsToReview.size +
-                products.count { it.requiresReview }
+                products.count { it.requiresReview } +
+                if (products.isEmpty()) 1 else 0
 
     companion object {
         private const val REVIEW_THRESHOLD = 0.70f
