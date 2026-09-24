@@ -52,13 +52,13 @@ fun ReceiptArchiveDetailScreen(
                 }
 
                 item {
-                    ArchiveDetailLine("Data", formatDate(details.receipt.purchaseDate))
+                    ArchiveDetailLine("Data", formatDetailDate(details.receipt.purchaseDate))
                     details.receipt.purchaseTime?.let {
                         ArchiveDetailLine("Ora", it)
                     }
                     ArchiveDetailLine(
                         "Totale",
-                        formatStoredAmount(
+                        formatDetailAmount(
                             details.receipt.totalAmount,
                             details.receipt.currency,
                         ),
@@ -100,12 +100,12 @@ fun ReceiptArchiveDetailScreen(
                         }
                         product.unitPrice?.let {
                             Text(
-                                "Prezzo unitario: ${formatStoredAmount(it, details.receipt.currency)}",
+                                "Prezzo unitario: ${formatDetailAmount(it, details.receipt.currency)}",
                             )
                         }
                         product.lineTotal?.let {
                             Text(
-                                "Importo riga: ${formatStoredAmount(it, details.receipt.currency)}",
+                                "Importo riga: ${formatDetailAmount(it, details.receipt.currency)}",
                             )
                         }
                     }
@@ -171,14 +171,14 @@ private fun ArchiveDetailLine(
     )
 }
 
-private fun formatDate(isoDate: String): String =
+private fun formatDetailDate(isoDate: String): String =
     runCatching {
         LocalDate
             .parse(isoDate)
             .format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
     }.getOrDefault(isoDate)
 
-private fun formatStoredAmount(
+private fun formatDetailAmount(
     storedAmount: String,
     currency: String?,
 ): String {
