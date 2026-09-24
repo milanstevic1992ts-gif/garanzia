@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun HomeScreen(
     onScanReceipt: () -> Unit,
+    onOpenArchive: () -> Unit,
     lastSavedPages: Int,
     lastConfirmedProducts: Int?,
     savedReceiptCount: Int,
@@ -45,6 +46,9 @@ fun HomeScreen(
             )
             Button(onClick = onScanReceipt) {
                 Text("Scansiona scontrino")
+            }
+            Button(onClick = onOpenArchive) {
+                Text("Apri archivio")
             }
             if (lastSavedPages > 0) {
                 Text(
