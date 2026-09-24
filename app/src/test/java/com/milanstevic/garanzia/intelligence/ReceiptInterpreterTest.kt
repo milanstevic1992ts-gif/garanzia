@@ -133,6 +133,24 @@ class ReceiptInterpreterTest {
         assertTrue(result.needsReview)
     }
 
+
+    @Test
+    fun attachesDetectedProductsToReceiptInterpretation() {
+        val result = interpreter.interpret(
+            receiptOf(
+                line("FERRAMENTA ROSSI SRL"),
+                line("DATA 22/09/2026"),
+                line("TRAPANO BOSCH 99,90"),
+                line("BATTERIA 18V 49,90"),
+                line("TOTALE 149,80 €"),
+            ),
+        )
+
+        assertEquals(2, result.products.size)
+        assertEquals("TRAPANO BOSCH", result.products[0].value.name)
+        assertEquals("BATTERIA 18V", result.products[1].value.name)
+    }
+
     private fun line(
         text: String,
         confidence: Float = 0.95f,
