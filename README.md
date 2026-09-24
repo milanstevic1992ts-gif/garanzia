@@ -3,7 +3,7 @@
 Archivio Android offline-first per scontrini e garanzie.
 
 ## Stato progetto
-Fase 5 — confidence e anti-allucinazione integrati (controllo statico completato; build reale prevista in Fase 16).
+Fase 6 — comprensione multi-prodotto integrata (controllo statico completato; build reale prevista in Fase 16).
 
 ## Principi
 - Android nativo: Kotlin + Jetpack Compose + Material 3
@@ -44,7 +44,18 @@ Fase 5 — confidence e anti-allucinazione integrati (controllo statico completa
    - carta fedeltà non viene confusa con metodo di pagamento
    - segnalazione di verifica consigliata quando mancano campi importanti o la confidence è bassa
    - test unitari dedicati ai casi anti-allucinazione
-6. Comprensione multi-prodotto
+6. ✅ Comprensione multi-prodotto
+   - più prodotti estratti dallo stesso scontrino
+   - supporto prodotto + prezzo sulla stessa riga
+   - supporto nome prodotto su una riga e quantità/prezzo sulla riga successiva
+   - quantità esplicite tipo `2 x 4,50` e `2 PZ`
+   - prezzo unitario e importo riga quando realmente presenti
+   - confidence ed evidenza OCR per ogni prodotto
+   - esclusione di totale, subtotale, IVA, resto, pagamento e metadata
+   - protezioni contro falsi positivi come `carta abrasiva`
+   - prefissi come `ARTICOLO` / `PRODOTTO` puliti senza perdere il nome reale
+   - barcode/EAN volutamente rimandati alla Fase 11
+   - test unitari multi-prodotto e test di integrazione nel risultato scontrino
 7. Conferma intelligente
 8. Database locale completo
 9. Archivio garanzie
