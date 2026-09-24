@@ -311,13 +311,16 @@ private fun ConfirmationTextField(
         label = { Text(label) },
         isError = isError || requiresReview,
         supportingText = {
-            when {
-                requiresReview && helper != null ->
-                    Text("Da verificare · $helper")
-                requiresReview ->
-                    Text("Da verificare")
-                helper != null ->
-                    Text(helper)
+            if (requiresReview) {
+                Text(
+                    if (helper != null) {
+                        "Da verificare · $helper"
+                    } else {
+                        "Da verificare"
+                    },
+                )
+            } else if (helper != null) {
+                Text(helper)
             }
         },
         singleLine = true,
