@@ -159,6 +159,23 @@ class ReceiptProductInterpreterTest {
         assertEquals(BigDecimal("12.00"), product.lineTotal)
     }
 
+
+    @Test
+    fun cassaAttrezziRemainsAProductWhileRegisterRowIsIgnored() {
+        val products = interpreter.interpret(
+            receipt = receiptOf(
+                line("FERRAMENTA TEST SRL"),
+                line("CASSA 03"),
+                line("CASSA ATTREZZI 29,90"),
+                line("TOTALE 29,90 €"),
+            ),
+            merchantEvidence = "FERRAMENTA TEST SRL",
+        )
+
+        assertEquals(1, products.size)
+        assertEquals("CASSA ATTREZZI", products.single().value.name)
+    }
+
     private fun line(
         text: String,
         confidence: Float = 0.95f,
