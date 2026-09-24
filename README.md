@@ -3,7 +3,7 @@
 Archivio Android offline-first per scontrini e garanzie.
 
 ## Stato progetto
-Fase 7 — conferma intelligente integrata (controllo statico completato; build reale prevista in Fase 16).
+Fase 8 — database locale Room integrato e collegato alla conferma (controllo statico completato; build reale prevista in Fase 16).
 
 ## Principi
 - Android nativo: Kotlin + Jetpack Compose + Material 3
@@ -69,7 +69,23 @@ Fase 7 — conferma intelligente integrata (controllo statico completato; build 
    - gli indicatori `Da verificare` si risolvono dopo una correzione manuale
    - conferma mantenuta solo nella sessione: nessun salvataggio database anticipato
    - test unitari del modello di conferma e delle validazioni
-8. Database locale completo
+8. ✅ Database locale completo
+   - Room / SQLite con database `garanzia.db` versione 1
+   - tabella scontrini con dati confermati, data canonica e testo OCR grezzo
+   - tabella prodotti collegata allo scontrino con ordine stabile
+   - tabella pagine originali con URI dei file conservati
+   - foreign key con `CASCADE` tra scontrino, prodotti e pagine
+   - indici su data, esercente, data conferma e nomi prodotto
+   - vincolo univoco su posizione prodotto e indice pagina per scontrino
+   - salvataggio atomico di scontrino + prodotti + pagine in una transazione
+   - Repository Room iniettato con Hilt
+   - il tasto `Conferma scontrino` salva realmente nel database locale
+   - stato di salvataggio ed eventuale errore mostrati nella schermata di conferma
+   - Home collegata a `Flow` Room con contatore persistente `Scontrini salvati`
+   - lettura singolo scontrino, osservazione elenco e cancellazione predisposte per la Fase 9
+   - schema export Room configurato per le future migrazioni
+   - test strumentali con database Room in memoria, persistenza completa e `CASCADE`
+   - nessuna UI archivio anticipata: resta alla Fase 9
 9. Archivio garanzie
 10. Scheda prodotto
 11. Barcode / EAN
