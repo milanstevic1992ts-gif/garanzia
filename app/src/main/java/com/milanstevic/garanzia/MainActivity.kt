@@ -20,6 +20,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.milanstevic.garanzia.intelligence.ReceiptInterpretation
+import com.milanstevic.garanzia.intelligence.ReceiptInterpreter
 import com.milanstevic.garanzia.ocr.OcrReceiptResult
 import com.milanstevic.garanzia.ocr.OcrResultScreen
 import com.milanstevic.garanzia.ocr.ReceiptOcrEngine
@@ -45,6 +47,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var receiptOcrEngine: ReceiptOcrEngine
 
+    @Inject
+    lateinit var receiptInterpreter: ReceiptInterpreter
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -54,6 +59,7 @@ class MainActivity : ComponentActivity() {
                     activity = this,
                     fileStore = receiptFileStore,
                     ocrEngine = receiptOcrEngine,
+                    receiptInterpreter = receiptInterpreter,
                 )
             }
         }
@@ -72,6 +78,7 @@ private fun GaranziaApp(
     activity: Activity,
     fileStore: ReceiptFileStore,
     ocrEngine: ReceiptOcrEngine,
+    receiptInterpreter: ReceiptInterpreter,
 ) {
     val scope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(AppScreen.HOME) }
@@ -82,6 +89,7 @@ private fun GaranziaApp(
     var ocrStatus by remember { mutableStateOf("Preparazione OCR") }
     var ocrProgress by remember { mutableStateOf<Int?>(null) }
     var ocrResult by remember { mutableStateOf<OcrReceiptResult?>(null) }
+    var interpretation by remember { mutableStateOf<ReceiptInterpretation?>(null) }
     var ocrError by remember { mutableStateOf<String?>(null) }
 
     fun showReview(uris: List<Uri>) {
@@ -99,6 +107,7 @@ private fun GaranziaApp(
         ocrStatus = "Preparazione PP-OCRv6"
         ocrProgress = null
         ocrResult = null
+        interpretation = null
         ocrError = null
         screen = AppScreen.OCR
 
@@ -112,7 +121,10 @@ private fun GaranziaApp(
                     }
                 }
                 ocrResult = result
-                ocrStatus = "OCR completato"
+                interpretation = runCatching {
+                    receiptInterpreter.interpret(result)
+                }.getOrNull()
+                ocrStatus = "OCR e interpretazione completati"
                 ocrProgress = 100
             } catch (t: Throwable) {
                 ocrError = t.message ?: t::class.java.simpleName
@@ -220,9 +232,11 @@ private fun GaranziaApp(
             status = ocrStatus,
             progressPercent = ocrProgress,
             result = ocrResult,
+            interpretation = interpretation,
             error = ocrError,
             onDone = {
                 ocrResult = null
+                interpretation = null
                 ocrError = null
                 ocrProgress = null
                 screen = AppScreen.HOME
