@@ -14,6 +14,7 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 
 @Singleton
 class ReceiptRepository @Inject constructor(
@@ -94,9 +95,11 @@ class ReceiptRepository @Inject constructor(
 
     fun observeReceipts(): Flow<List<ReceiptWithDetails>> =
         receiptDao.observeReceipts()
+            .catch { emit(emptyList()) }
 
     fun observeReceiptCount(): Flow<Int> =
         receiptDao.observeReceiptCount()
+            .catch { emit(0) }
 
     suspend fun getReceipt(receiptId: String): ReceiptWithDetails? =
         receiptDao.getReceipt(receiptId)
