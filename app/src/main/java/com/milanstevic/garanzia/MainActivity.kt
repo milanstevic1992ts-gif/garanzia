@@ -392,6 +392,11 @@ private fun GaranziaApp(
                     screen = AppScreen.CONFIRM
                 }
             },
+            onManualSave = {
+                confirmationDraft = ReceiptConfirmationDraft.manualFallback()
+                saveReceiptError = null
+                screen = AppScreen.CONFIRM
+            },
             onDone = {
                 ocrResult = null
                 interpretation = null
