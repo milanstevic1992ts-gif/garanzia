@@ -27,6 +27,8 @@ import androidx.documentfile.provider.DocumentFile
 import com.milanstevic.garanzia.archive.ArchiveFilterState
 import com.milanstevic.garanzia.archive.ReceiptArchiveDetailScreen
 import com.milanstevic.garanzia.archive.ReceiptArchiveScreen
+import com.milanstevic.garanzia.archive.ReceiptPdfManager
+import com.milanstevic.garanzia.archive.ReceiptPdfViewerScreen
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationScreen
 import com.milanstevic.garanzia.data.ReceiptRepository
@@ -73,6 +75,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var receiptMirrorManager: ReceiptMirrorManager
 
+    @Inject
+    lateinit var receiptPdfManager: ReceiptPdfManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -86,6 +91,7 @@ class MainActivity : ComponentActivity() {
                     receiptRepository = receiptRepository,
                     storageSettings = storageSettings,
                     receiptMirrorManager = receiptMirrorManager,
+                    receiptPdfManager = receiptPdfManager,
                 )
             }
         }
@@ -100,6 +106,7 @@ private enum class AppScreen {
     CONFIRM,
     ARCHIVE,
     ARCHIVE_DETAIL,
+    PDF_VIEWER,
     STORAGE,
 }
 
@@ -112,6 +119,7 @@ private fun GaranziaApp(
     receiptRepository: ReceiptRepository,
     storageSettings: StorageSettings,
     receiptMirrorManager: ReceiptMirrorManager,
+    receiptPdfManager: ReceiptPdfManager,
 ) {
     val scope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(AppScreen.HOME) }
@@ -128,6 +136,9 @@ private fun GaranziaApp(
     val storageState by storageSettings.state.collectAsState()
     var storageSyncInProgress by remember { mutableStateOf(false) }
     var storageMessage by remember { mutableStateOf<String?>(null) }
+    var pdfFile by remember { mutableStateOf<File?>(null) }
+    var pdfLoading by remember { mutableStateOf(false) }
+    var pdfError by remember { mutableStateOf<String?>(null) }
 
     var ocrStatus by remember { mutableStateOf("Preparazione OCR") }
     var ocrProgress by remember { mutableStateOf<Int?>(null) }
@@ -179,6 +190,36 @@ private fun GaranziaApp(
             } catch (t: Throwable) {
                 ocrError = t.message ?: t::class.java.simpleName
                 ocrStatus = "OCR non completato"
+            }
+        }
+    }
+
+
+    fun openReceiptPdf(receiptId: String) {
+        selectedArchiveReceiptId = receiptId
+        pdfFile = null
+        pdfError = null
+        pdfLoading = true
+        screen = AppScreen.PDF_VIEWER
+
+        val details = archiveReceipts.firstOrNull {
+            it.receipt.id == receiptId
+        }
+
+        if (details == null) {
+            pdfLoading = false
+            pdfError = "Scontrino non trovato nell'archivio"
+            return
+        }
+
+        scope.launch {
+            try {
+                pdfFile = receiptPdfManager.createOrReplacePdf(details)
+            } catch (t: Throwable) {
+                pdfError =
+                    t.message ?: "Impossibile preparare il PDF dello scontrino"
+            } finally {
+                pdfLoading = false
             }
         }
     }
@@ -490,6 +531,9 @@ private fun GaranziaApp(
             if (details != null) {
                 ReceiptArchiveDetailScreen(
                     details = details,
+                    onOpenPdf = {
+                        openReceiptPdf(details.receipt.id)
+                    },
                     onBack = {
                         selectedArchiveReceiptId = null
                         screen = AppScreen.ARCHIVE
@@ -510,6 +554,25 @@ private fun GaranziaApp(
                 )
             }
         }
+
+        AppScreen.PDF_VIEWER -> ReceiptPdfViewerScreen(
+            pdfFile = pdfFile,
+            loading = pdfLoading,
+            error = pdfError,
+            onRetry = {
+                selectedArchiveReceiptId?.let(::openReceiptPdf)
+            },
+            onBack = {
+                pdfError = null
+                pdfLoading = false
+                screen =
+                    if (selectedArchiveReceiptId != null) {
+                        AppScreen.ARCHIVE_DETAIL
+                    } else {
+                        AppScreen.ARCHIVE
+                    }
+            },
+        )
 
         AppScreen.STORAGE -> StorageSettingsScreen(
             state = storageState,
