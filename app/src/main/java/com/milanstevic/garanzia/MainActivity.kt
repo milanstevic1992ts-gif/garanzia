@@ -2,6 +2,7 @@ package com.milanstevic.garanzia
 
 import android.Manifest
 import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
@@ -12,6 +13,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -21,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.documentfile.provider.DocumentFile
 import com.milanstevic.garanzia.archive.ArchiveFilterState
 import com.milanstevic.garanzia.archive.ReceiptArchiveDetailScreen
 import com.milanstevic.garanzia.archive.ReceiptArchiveScreen
@@ -36,6 +39,11 @@ import com.milanstevic.garanzia.scanner.DocumentScannerManager
 import com.milanstevic.garanzia.scanner.FallbackCameraScreen
 import com.milanstevic.garanzia.scanner.ReceiptFileStore
 import com.milanstevic.garanzia.scanner.ReceiptReviewScreen
+import com.milanstevic.garanzia.storage.ReceiptMirrorManager
+import com.milanstevic.garanzia.storage.ReceiptMirrorResult
+import com.milanstevic.garanzia.storage.StorageSettings
+import com.milanstevic.garanzia.storage.StorageSettingsScreen
+import com.milanstevic.garanzia.storage.StorageTarget
 import com.milanstevic.garanzia.ui.home.HomeScreen
 import com.milanstevic.garanzia.ui.theme.GaranziaTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -60,6 +68,12 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var receiptRepository: ReceiptRepository
 
+    @Inject
+    lateinit var storageSettings: StorageSettings
+
+    @Inject
+    lateinit var receiptMirrorManager: ReceiptMirrorManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -71,6 +85,8 @@ class MainActivity : ComponentActivity() {
                     ocrEngine = receiptOcrEngine,
                     receiptInterpreter = receiptInterpreter,
                     receiptRepository = receiptRepository,
+                    storageSettings = storageSettings,
+                    receiptMirrorManager = receiptMirrorManager,
                 )
             }
         }
@@ -85,6 +101,7 @@ private enum class AppScreen {
     CONFIRM,
     ARCHIVE,
     ARCHIVE_DETAIL,
+    STORAGE,
 }
 
 @Composable
@@ -94,6 +111,8 @@ private fun GaranziaApp(
     ocrEngine: ReceiptOcrEngine,
     receiptInterpreter: ReceiptInterpreter,
     receiptRepository: ReceiptRepository,
+    storageSettings: StorageSettings,
+    receiptMirrorManager: ReceiptMirrorManager,
 ) {
     val scope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(AppScreen.HOME) }
@@ -107,6 +126,9 @@ private fun GaranziaApp(
     val archiveReceipts by archiveReceiptsFlow.collectAsState(initial = emptyList())
     var selectedArchiveReceiptId by remember { mutableStateOf<String?>(null) }
     var archiveFilters by remember { mutableStateOf(ArchiveFilterState()) }
+    val storageState by storageSettings.state.collectAsState()
+    var storageSyncInProgress by remember { mutableStateOf(false) }
+    var storageMessage by remember { mutableStateOf<String?>(null) }
 
     var ocrStatus by remember { mutableStateOf("Preparazione OCR") }
     var ocrProgress by remember { mutableStateOf<Int?>(null) }
@@ -162,6 +184,101 @@ private fun GaranziaApp(
         }
     }
 
+
+    fun syncArchiveCopies() {
+        if (storageSyncInProgress) return
+        if (!storageState.phoneConfigured && !storageState.driveConfigured) {
+            storageMessage = "Configura almeno una cartella esterna."
+            return
+        }
+
+        storageSyncInProgress = true
+        scope.launch {
+            try {
+                val summary = withContext(Dispatchers.IO) {
+                    receiptMirrorManager.mirrorArchive(archiveReceipts)
+                }
+                storageMessage =
+                    if (summary.failedCopies == 0) {
+                        "Sincronizzazione completata: ${summary.successfulCopies} copie verificate."
+                    } else {
+                        "Sincronizzazione parziale: ${summary.successfulCopies} copie OK, ${summary.failedCopies} da riprovare."
+                    }
+            } finally {
+                storageSyncInProgress = false
+            }
+        }
+    }
+
+    fun saveStorageFolder(
+        target: StorageTarget,
+        uri: Uri,
+    ) {
+        val flags =
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+
+        val persisted = runCatching {
+            activity.contentResolver.takePersistableUriPermission(uri, flags)
+        }.isSuccess
+
+        if (!persisted) {
+            storageMessage = "Impossibile mantenere il permesso permanente per questa cartella."
+            return
+        }
+
+        val label =
+            runCatching {
+                DocumentFile.fromTreeUri(activity, uri)?.name
+            }.getOrNull()
+                ?: uri.authority
+                ?: "Cartella selezionata"
+
+        storageSettings.saveTarget(
+            target = target,
+            uri = uri,
+            label = label,
+        )
+        storageMessage = "Cartella salvata. Avvio sincronizzazione automatica."
+    }
+
+    val phoneFolderLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            uri?.let { saveStorageFolder(StorageTarget.PHONE, it) }
+        }
+
+    val driveFolderLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            uri?.let { saveStorageFolder(StorageTarget.DRIVE, it) }
+        }
+
+    LaunchedEffect(
+        archiveReceipts.size,
+        storageState.phone.uri,
+        storageState.drive.uri,
+    ) {
+        if (
+            archiveReceipts.isNotEmpty() &&
+            (storageState.phoneConfigured || storageState.driveConfigured) &&
+            !storageSyncInProgress
+        ) {
+            storageSyncInProgress = true
+            try {
+                val summary = withContext(Dispatchers.IO) {
+                    receiptMirrorManager.mirrorArchive(archiveReceipts)
+                }
+                storageMessage =
+                    if (summary.failedCopies == 0) {
+                        "Copie esterne aggiornate."
+                    } else {
+                        "${summary.failedCopies} copie esterne da riprovare."
+                    }
+            } finally {
+                storageSyncInProgress = false
+            }
+        }
+    }
+
     val cameraPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) launchFallbackCamera()
@@ -212,9 +329,12 @@ private fun GaranziaApp(
         AppScreen.HOME -> HomeScreen(
             onScanReceipt = ::startScan,
             onOpenArchive = { screen = AppScreen.ARCHIVE },
+            onOpenStorage = { screen = AppScreen.STORAGE },
             lastSavedPages = lastSavedPages,
             lastConfirmedProducts = lastConfirmedProducts,
             savedReceiptCount = savedReceiptCount,
+            dualCopyConfigured = storageState.bothConfigured,
+            storageMessage = storageMessage,
         )
 
         AppScreen.CAMERA -> {
@@ -301,13 +421,21 @@ private fun GaranziaApp(
                             saveReceiptError = null
                             scope.launch {
                                 try {
-                                    withContext(Dispatchers.IO) {
+                                    val savedReceiptId = withContext(Dispatchers.IO) {
                                         receiptRepository.saveConfirmedReceipt(
                                             draft = draft,
                                             originalUris = currentOriginalUris,
                                             rawOcrText = ocrResult?.rawText,
                                         )
                                     }
+
+                                    val mirrorResult = withContext(Dispatchers.IO) {
+                                        receiptRepository
+                                            .getReceipt(savedReceiptId)
+                                            ?.let(receiptMirrorManager::mirrorReceipt)
+                                    }
+                                    storageMessage = describeMirrorResult(mirrorResult)
+
                                     lastConfirmedProducts = draft.products.size
                                     ocrResult = null
                                     interpretation = null
@@ -375,5 +503,49 @@ private fun GaranziaApp(
                 )
             }
         }
+
+        AppScreen.STORAGE -> StorageSettingsScreen(
+            state = storageState,
+            syncInProgress = storageSyncInProgress,
+            syncMessage = storageMessage,
+            onChoosePhone = { phoneFolderLauncher.launch(null) },
+            onChooseDrive = { driveFolderLauncher.launch(null) },
+            onClearPhone = {
+                storageSettings.clearTarget(StorageTarget.PHONE)
+                storageMessage = "Cartella telefono rimossa."
+            },
+            onClearDrive = {
+                storageSettings.clearTarget(StorageTarget.DRIVE)
+                storageMessage = "Cartella Google Drive rimossa."
+            },
+            onSyncNow = ::syncArchiveCopies,
+            onBack = { screen = AppScreen.HOME },
+        )
     }
 }
+
+
+private fun describeMirrorResult(result: ReceiptMirrorResult?): String =
+    when {
+        result == null ->
+            "Scontrino salvato nel database interno."
+
+        result.phone.configured && result.drive.configured &&
+            result.phone.success && result.drive.success ->
+            "Scontrino salvato: copia telefono OK · copia Drive OK."
+
+        result.configuredFailures.isNotEmpty() -> {
+            val failed = result.configuredFailures.joinToString(" · ") { item ->
+                val name =
+                    if (item.target == StorageTarget.PHONE) "telefono" else "Drive"
+                "$name: ${item.message}"
+            }
+            "Scontrino salvato internamente. Copia esterna da riprovare · $failed"
+        }
+
+        result.configuredSuccesses > 0 ->
+            "Scontrino salvato internamente e nella cartella configurata."
+
+        else ->
+            "Scontrino salvato internamente. Configura le cartelle per la doppia copia."
+    }
