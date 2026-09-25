@@ -85,6 +85,10 @@ class ReceiptRepository @Inject constructor(
             pages = pages,
         )
 
+        checkNotNull(receiptDao.getReceipt(receiptId)) {
+            "Lo scontrino non risulta presente dopo il salvataggio"
+        }
+
         return receiptId
     }
 
