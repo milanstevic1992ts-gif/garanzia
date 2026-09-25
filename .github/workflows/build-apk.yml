@@ -19,10 +19,26 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Install Android API 37
+      - name: Install Android API 37 preview
         run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "build-tools;36.0.0"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --list --channel=3 > /tmp/sdk-list.txt
+
+          PLATFORM="$(awk '/platforms;android-37/ {print $1; exit}' /tmp/sdk-list.txt)"
+          if [ -z "$PLATFORM" ]; then
+            PLATFORM="$(awk '/platforms;android-CinnamonBun/ {print $1; exit}' /tmp/sdk-list.txt)"
+          fi
+
+          BUILD_TOOLS="$(awk '/build-tools;37\./ {print $1}' /tmp/sdk-list.txt | sort -V | tail -1)"
+
+          echo "Platform package: $PLATFORM"
+          echo "Build tools package: $BUILD_TOOLS"
+
+          test -n "$PLATFORM"
+          test -n "$BUILD_TOOLS"
+
+          "$SDKMANAGER" --channel=3 "$PLATFORM" "$BUILD_TOOLS"
 
       - name: Gradle 9.6
         uses: gradle/actions/setup-gradle@v4
