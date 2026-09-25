@@ -17,7 +17,6 @@ import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.max
-import kotlin.math.roundToInt
 
 @Singleton
 class ReceiptPdfManager @Inject constructor(
@@ -42,7 +41,7 @@ class ReceiptPdfManager @Inject constructor(
         try {
             details.pages
                 .sortedBy { it.pageIndex }
-                .forEachIndexed { index, page ->
+                .forEach { page ->
                     val bitmap = decodeForPdf(Uri.parse(page.originalUri))
                         ?: return@forEachIndexed
 
@@ -50,7 +49,7 @@ class ReceiptPdfManager @Inject constructor(
                         val pageInfo = PdfDocument.PageInfo.Builder(
                             PDF_WIDTH,
                             PDF_HEIGHT,
-                            index + 1,
+                            writtenPages + 1,
                         ).create()
 
                         val pdfPage = document.startPage(pageInfo)
