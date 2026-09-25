@@ -100,7 +100,7 @@ class PaddleModelRepository @Inject constructor(
             setRequestProperty("User-Agent", "Garanzia-Android/0.1")
         }
 
-        try {
+        return try {
             connection.connect()
             if (connection.responseCode !in 200..299) {
                 error("Download modello fallito: HTTP ${connection.responseCode}")
