@@ -98,7 +98,10 @@ Fase 9 — archivio garanzie integrato sopra Room (controllo statico completato;
    - ordinamento `Più recenti` / `Più vecchi`
    - filtri mantenuti quando si apre un dettaglio e si torna all'archivio
    - dettaglio scontrino con dati acquisto e lista prodotti ordinata
-   - visualizzazione di tutte le immagini originali dello scontrino
+   - lettore PDF integrato basato su `PdfRenderer`, senza app esterne
+   - PDF generato al volo dalle immagini originali solo quando viene aperto
+   - rendering di una pagina alla volta per ridurre memoria e rischio crash
+   - gestione errore e `Riprova` se il PDF non è leggibile
    - visualizzazione del testo OCR originale conservato nel database
    - schermata vuota e stato `nessun risultato` gestiti
    - test unitari su ricerca, prodotto, documento, data, intervalli e ordinamento
