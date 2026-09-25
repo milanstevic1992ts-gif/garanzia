@@ -32,6 +32,7 @@ fun OcrResultScreen(
     interpretation: ReceiptInterpretation?,
     error: String?,
     onReview: () -> Unit,
+    onManualSave: () -> Unit,
     onDone: () -> Unit,
 ) {
     Scaffold { innerPadding ->
@@ -218,10 +219,17 @@ fun OcrResultScreen(
                 }
             } else if (error != null) {
                 Button(
+                    onClick = onManualSave,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Compila e salva comunque")
+                }
+
+                OutlinedButton(
                     onClick = onDone,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text("Torna alla home")
+                    Text("Torna alla home senza archiviare")
                 }
             }
         }
