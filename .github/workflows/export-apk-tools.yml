@@ -1,0 +1,44 @@
+name: Export Android Signing Tools
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  export-tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android Build Tools 37 preview
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --list --channel=3 > /tmp/sdk-list.txt
+          BUILD_TOOLS="$(awk '/build-tools;37\./ {print $1}' /tmp/sdk-list.txt | sort -V | tail -1)"
+          echo "Build tools package: $BUILD_TOOLS"
+          test -n "$BUILD_TOOLS"
+          "$SDKMANAGER" --channel=3 "$BUILD_TOOLS"
+
+      - name: Collect signing tools
+        run: |
+          BT_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          echo "Using build tools: $BT_DIR"
+          mkdir -p artifact/lib
+          cp "$BT_DIR/zipalign" artifact/
+          cp "$BT_DIR/apksigner" artifact/
+          cp "$BT_DIR/lib/apksigner.jar" artifact/lib/
+          chmod +x artifact/zipalign artifact/apksigner
+
+      - name: Upload signing tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-signing-tools
+          path: artifact
+          if-no-files-found: error
