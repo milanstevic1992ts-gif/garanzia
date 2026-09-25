@@ -20,6 +20,6 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.27.0")
-    implementation("com.quickbirdstudios:opencv:4.5.3")
+    implementation("com.quickbirdstudios:opencv:4.5.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
