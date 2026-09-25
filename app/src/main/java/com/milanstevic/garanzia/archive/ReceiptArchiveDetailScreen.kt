@@ -1,6 +1,5 @@
 package com.milanstevic.garanzia.archive
 
-import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -15,9 +15,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.milanstevic.garanzia.data.local.ReceiptWithDetails
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -27,6 +25,7 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun ReceiptArchiveDetailScreen(
     details: ReceiptWithDetails,
+    onOpenPdf: () -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold { innerPadding ->
@@ -119,25 +118,21 @@ fun ReceiptArchiveDetailScreen(
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 10.dp),
                     )
-                }
 
-                items(
-                    items = details.pages.sortedBy { it.pageIndex },
-                    key = { it.id },
-                ) { page ->
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    Text(
+                        text = "Le immagini originali vengono convertite in PDF solo quando lo apri, così l'archivio resta leggero e stabile.",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+
+                    Button(
+                        onClick = onOpenPdf,
+                        enabled = details.pages.isNotEmpty(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
                     ) {
-                        Text(
-                            text = "Pagina ${page.pageIndex + 1}",
-                            style = MaterialTheme.typography.titleSmall,
-                        )
-                        AsyncImage(
-                            model = Uri.parse(page.originalUri),
-                            contentDescription = "Pagina ${page.pageIndex + 1} dello scontrino",
-                            modifier = Modifier.fillMaxWidth(),
-                            contentScale = ContentScale.FillWidth,
-                        )
+                        Text("Apri PDF integrato")
                     }
                 }
 
