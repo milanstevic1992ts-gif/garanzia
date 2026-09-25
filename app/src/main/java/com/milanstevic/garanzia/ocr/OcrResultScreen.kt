@@ -60,7 +60,7 @@ fun OcrResultScreen(
                     color = MaterialTheme.colorScheme.error,
                 )
                 Text(
-                    text = "Lo scontrino originale è comunque già stato conservato.",
+                    text = "La foto originale è conservata, ma non è ancora nell'archivio. Puoi compilarla e salvarla manualmente.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
