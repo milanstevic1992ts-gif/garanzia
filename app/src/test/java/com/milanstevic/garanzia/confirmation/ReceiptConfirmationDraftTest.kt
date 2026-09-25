@@ -15,6 +15,17 @@ import org.junit.Test
 class ReceiptConfirmationDraftTest {
 
     @Test
+    fun manualFallbackStartsEmptyAndRequiresUserConfirmation() {
+        val draft = ReceiptConfirmationDraft.manualFallback()
+
+        assertTrue(ConfirmationField.MERCHANT in draft.fieldsToReview)
+        assertTrue(ConfirmationField.PURCHASE_DATE in draft.fieldsToReview)
+        assertTrue(ConfirmationField.TOTAL in draft.fieldsToReview)
+        assertTrue(draft.products.isEmpty())
+        assertFalse(draft.canConfirm)
+    }
+
+    @Test
     fun highConfidenceReceiptNeedsNoAttentionAndCanConfirm() {
         val draft = ReceiptConfirmationDraft.from(
             interpretation(
