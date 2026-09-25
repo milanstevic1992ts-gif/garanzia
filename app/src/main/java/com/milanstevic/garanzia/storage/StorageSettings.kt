@@ -1,6 +1,7 @@
 package com.milanstevic.garanzia.storage
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -61,6 +62,22 @@ class StorageSettings @Inject constructor(
     }
 
     fun clearTarget(target: StorageTarget) {
+        val currentUri =
+            when (target) {
+                StorageTarget.PHONE -> _state.value.phone.uri
+                StorageTarget.DRIVE -> _state.value.drive.uri
+            }
+
+        currentUri?.let { uri ->
+            runCatching {
+                context.contentResolver.releasePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }
+        }
+
         when (target) {
             StorageTarget.PHONE ->
                 preferences.edit()
