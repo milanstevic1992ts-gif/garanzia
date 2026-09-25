@@ -43,7 +43,7 @@ class ReceiptPdfManager @Inject constructor(
                 .sortedBy { it.pageIndex }
                 .forEach { page ->
                     val bitmap = decodeForPdf(Uri.parse(page.originalUri))
-                        ?: return@forEachIndexed
+                        ?: return@forEach
 
                     try {
                         val pageInfo = PdfDocument.PageInfo.Builder(
