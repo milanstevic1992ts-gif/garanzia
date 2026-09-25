@@ -64,6 +64,24 @@ data class ReceiptConfirmationDraft(
             .ofPattern("dd/MM/uuuu")
             .withResolverStyle(ResolverStyle.STRICT)
 
+        fun manualFallback(): ReceiptConfirmationDraft =
+            ReceiptConfirmationDraft(
+                merchant = "",
+                purchaseDate = "",
+                purchaseTime = "",
+                totalAmount = "",
+                currency = "",
+                vatNumber = "",
+                documentNumber = "",
+                paymentMethod = "",
+                products = emptyList(),
+                fieldsToReview = setOf(
+                    ConfirmationField.MERCHANT,
+                    ConfirmationField.PURCHASE_DATE,
+                    ConfirmationField.TOTAL,
+                ),
+            )
+
         fun from(
             interpretation: ReceiptInterpretation,
         ): ReceiptConfirmationDraft {
