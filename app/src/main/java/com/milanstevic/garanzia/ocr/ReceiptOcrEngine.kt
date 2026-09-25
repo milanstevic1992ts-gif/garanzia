@@ -50,7 +50,12 @@ class ReceiptOcrEngine @Inject constructor(
     ): OcrReceiptResult {
         require(pages.isNotEmpty()) { "Nessuna pagina da leggere" }
         check(OpenCVUtils.init(context)) {
-            "OpenCV non inizializzato. Chiudi e riapri l'app; se il problema continua aggiorna l'app."
+            buildString {
+                append("OpenCV non inizializzato")
+                OpenCVUtils.errorMessage()
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { append(": ").append(it) }
+            }
         }
 
         val files = models.ensureInstalled(modelProgress)
