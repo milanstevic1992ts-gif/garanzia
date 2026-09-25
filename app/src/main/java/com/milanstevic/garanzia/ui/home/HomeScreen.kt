@@ -16,9 +16,12 @@ import androidx.compose.ui.unit.dp
 fun HomeScreen(
     onScanReceipt: () -> Unit,
     onOpenArchive: () -> Unit,
+    onOpenStorage: () -> Unit,
     lastSavedPages: Int,
     lastConfirmedProducts: Int?,
     savedReceiptCount: Int,
+    dualCopyConfigured: Boolean,
+    storageMessage: String?,
 ) {
     Scaffold { innerPadding ->
         Column(
@@ -49,6 +52,24 @@ fun HomeScreen(
             }
             Button(onClick = onOpenArchive) {
                 Text("Apri archivio")
+            }
+            Button(onClick = onOpenStorage) {
+                Text("Archiviazione")
+            }
+            Text(
+                text =
+                    if (dualCopyConfigured) {
+                        "Doppia copia: attiva"
+                    } else {
+                        "Doppia copia: da configurare"
+                    },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            storageMessage?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
             if (lastSavedPages > 0) {
                 Text(
