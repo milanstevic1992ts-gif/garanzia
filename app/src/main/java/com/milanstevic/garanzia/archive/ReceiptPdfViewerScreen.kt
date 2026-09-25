@@ -214,11 +214,14 @@ private class PdfSession private constructor(
     private val renderer: PdfRenderer,
 ) : Closeable {
 
+    private var closed = false
+
     val pageCount: Int
         get() = renderer.pageCount
 
     @Synchronized
     fun renderPage(index: Int): Bitmap {
+        check(!closed) { "PDF già chiuso" }
         require(index in 0 until renderer.pageCount) {
             "Pagina PDF non valida"
         }
@@ -244,7 +247,10 @@ private class PdfSession private constructor(
         }
     }
 
+    @Synchronized
     override fun close() {
+        if (closed) return
+        closed = true
         renderer.close()
         descriptor.close()
     }
