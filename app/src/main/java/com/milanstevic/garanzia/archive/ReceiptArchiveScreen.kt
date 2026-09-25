@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.milanstevic.garanzia.data.local.ReceiptWithDetails
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -239,7 +240,7 @@ private fun formatAmount(
 ): String {
     val amount = runCatching { BigDecimal(storedAmount) }.getOrNull()
     val number = amount
-        ?.setScale(2)
+        ?.setScale(2, RoundingMode.HALF_UP)
         ?.toPlainString()
         ?.replace('.', ',')
         ?: storedAmount
