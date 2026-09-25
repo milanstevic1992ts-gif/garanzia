@@ -54,18 +54,12 @@ fun ReceiptPdfViewerScreen(
     DisposableEffect(pdfFile) {
         onDispose {
             pageBitmap?.recycle()
-            pageBitmap = null
             session?.close()
-            session = null
         }
     }
 
     LaunchedEffect(pdfFile) {
-        session?.close()
-        session = null
         pageIndex = 0
-        pageBitmap?.recycle()
-        pageBitmap = null
         viewerError = null
 
         if (pdfFile != null) {
@@ -92,7 +86,6 @@ fun ReceiptPdfViewerScreen(
             }
         }
 
-        pageBitmap?.recycle()
         pageBitmap = rendered.getOrNull()
 
         rendered.exceptionOrNull()?.let { throwable ->
