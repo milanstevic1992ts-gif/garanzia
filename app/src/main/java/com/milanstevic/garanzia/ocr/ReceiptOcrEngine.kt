@@ -7,6 +7,7 @@ import android.net.Uri
 import com.paddle.ocr.EngineConfig
 import com.paddle.ocr.FilePaddleOCR
 import com.paddle.ocr.PaddleOCRConfig
+import com.paddle.ocr.util.OpenCVUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -48,6 +49,9 @@ class ReceiptOcrEngine @Inject constructor(
         modelProgress: suspend (OcrModelProgress) -> Unit = {},
     ): OcrReceiptResult {
         require(pages.isNotEmpty()) { "Nessuna pagina da leggere" }
+        check(OpenCVUtils.init(context)) {
+            "OpenCV non inizializzato. Chiudi e riapri l'app; se il problema continua aggiorna l'app."
+        }
 
         val files = models.ensureInstalled(modelProgress)
         val characters = loadCharacterList()
