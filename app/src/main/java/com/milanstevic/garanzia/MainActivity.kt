@@ -40,7 +40,6 @@ import com.milanstevic.garanzia.scanner.FallbackCameraScreen
 import com.milanstevic.garanzia.scanner.ReceiptFileStore
 import com.milanstevic.garanzia.scanner.ReceiptReviewScreen
 import com.milanstevic.garanzia.storage.ReceiptMirrorManager
-import com.milanstevic.garanzia.storage.ReceiptMirrorResult
 import com.milanstevic.garanzia.storage.StorageSettings
 import com.milanstevic.garanzia.storage.StorageSettingsScreen
 import com.milanstevic.garanzia.storage.StorageTarget
@@ -421,7 +420,7 @@ private fun GaranziaApp(
                             saveReceiptError = null
                             scope.launch {
                                 try {
-                                    val savedReceiptId = withContext(Dispatchers.IO) {
+                                    withContext(Dispatchers.IO) {
                                         receiptRepository.saveConfirmedReceipt(
                                             draft = draft,
                                             originalUris = currentOriginalUris,
@@ -429,12 +428,15 @@ private fun GaranziaApp(
                                         )
                                     }
 
-                                    val mirrorResult = withContext(Dispatchers.IO) {
-                                        receiptRepository
-                                            .getReceipt(savedReceiptId)
-                                            ?.let(receiptMirrorManager::mirrorReceipt)
-                                    }
-                                    storageMessage = describeMirrorResult(mirrorResult)
+                                    storageMessage =
+                                        if (
+                                            storageState.phoneConfigured ||
+                                            storageState.driveConfigured
+                                        ) {
+                                            "Scontrino salvato. Sincronizzazione copie esterne in corso."
+                                        } else {
+                                            "Scontrino salvato nel database interno. Configura Archiviazione per le copie esterne."
+                                        }
 
                                     lastConfirmedProducts = draft.products.size
                                     ocrResult = null
@@ -523,29 +525,3 @@ private fun GaranziaApp(
         )
     }
 }
-
-
-private fun describeMirrorResult(result: ReceiptMirrorResult?): String =
-    when {
-        result == null ->
-            "Scontrino salvato nel database interno."
-
-        result.phone.configured && result.drive.configured &&
-            result.phone.success && result.drive.success ->
-            "Scontrino salvato: copia telefono OK · copia Drive OK."
-
-        result.configuredFailures.isNotEmpty() -> {
-            val failed = result.configuredFailures.joinToString(" · ") { item ->
-                val name =
-                    if (item.target == StorageTarget.PHONE) "telefono" else "Drive"
-                "$name: ${item.message}"
-            }
-            "Scontrino salvato internamente. Copia esterna da riprovare · $failed"
-        }
-
-        result.configuredSuccesses > 0 ->
-            "Scontrino salvato internamente e nella cartella configurata."
-
-        else ->
-            "Scontrino salvato internamente. Configura le cartelle per la doppia copia."
-    }
