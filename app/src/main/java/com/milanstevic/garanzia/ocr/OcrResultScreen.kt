@@ -2,6 +2,7 @@ package com.milanstevic.garanzia.ocr
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -9,7 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -20,7 +20,13 @@ import androidx.compose.ui.unit.dp
 import com.milanstevic.garanzia.intelligence.InterpretedField
 import com.milanstevic.garanzia.intelligence.ReceiptInterpretation
 import com.milanstevic.garanzia.intelligence.ReceiptProduct
+import com.milanstevic.garanzia.ui.components.GaranziaHeader
+import com.milanstevic.garanzia.ui.components.InfoStrip
+import com.milanstevic.garanzia.ui.components.KeyValueRow
+import com.milanstevic.garanzia.ui.components.SectionCard
+import com.milanstevic.garanzia.ui.components.StatusPill
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -35,118 +41,173 @@ fun OcrResultScreen(
     onManualSave: () -> Unit,
     onDone: () -> Unit,
 ) {
-    Scaffold { innerPadding ->
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(
-                text = "OCR scontrino",
-                style = MaterialTheme.typography.headlineSmall,
+            GaranziaHeader(
+                eyebrow = "Lettura intelligente",
+                title = "OCR scontrino",
+                subtitle = "Riconoscimento locale con conservazione dell'originale.",
             )
 
             if (result == null && error == null) {
-                CircularProgressIndicator()
-                Text(status)
-                progressPercent?.let { Text("$it%") }
+                SectionCard(
+                    title = "Sto leggendo lo scontrino",
+                    subtitle = status,
+                ) {
+                    CircularProgressIndicator()
+                    progressPercent?.let {
+                        StatusPill(
+                            text = "$it%",
+                            positive = true,
+                        )
+                    }
+                }
             }
 
             error?.let {
-                Text(
-                    text = "OCR non completato: $it",
-                    color = MaterialTheme.colorScheme.error,
-                )
-                Text(
-                    text = "La foto originale è conservata, ma non è ancora nell'archivio. Puoi compilarla e salvarla manualmente.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                SectionCard(
+                    title = "OCR non completato",
+                    subtitle = "La foto originale è al sicuro.",
+                ) {
+                    InfoStrip(
+                        text = it,
+                        positive = false,
+                    )
+                    Text(
+                        text = "Puoi comunque compilare i dati manualmente e salvare lo scontrino nell'archivio.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             result?.let { receipt ->
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     item {
-                        Text(
-                            text = "Dati interpretati",
-                            style = MaterialTheme.typography.titleMedium,
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(
+                                text = "Dati riconosciuti",
+                                style = MaterialTheme.typography.titleLarge,
+                            )
+
+                            StatusPill(
+                                text =
+                                    if (interpretation?.needsReview == true) {
+                                        "Da verificare"
+                                    } else {
+                                        "Pronti"
+                                    },
+                                positive = interpretation?.needsReview != true,
+                            )
+                        }
                     }
 
                     if (interpretation?.hasStructuredData == true) {
-                        if (interpretation.needsReview) {
+                        interpretation.merchant?.let { field ->
                             item {
-                                Text(
-                                    text = "Verifica consigliata: almeno un dato importante manca o ha affidabilità bassa.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.error,
+                                InterpretationField(
+                                    label = "Negozio",
+                                    value = field.value,
+                                    field = field,
                                 )
                             }
                         }
 
-                        interpretation.merchant?.let { field ->
-                            item { InterpretationField("Negozio", field.value, field) }
-                        }
                         interpretation.purchaseDate?.let { field ->
                             item {
                                 InterpretationField(
-                                    "Data acquisto",
-                                    field.value.format(DATE_FORMAT),
-                                    field,
+                                    label = "Data acquisto",
+                                    value = field.value.format(DATE_FORMAT),
+                                    field = field,
                                 )
                             }
                         }
+
                         interpretation.purchaseTime?.let { field ->
                             item {
                                 InterpretationField(
-                                    "Ora",
-                                    field.value.format(TIME_FORMAT),
-                                    field,
+                                    label = "Ora",
+                                    value = field.value.format(TIME_FORMAT),
+                                    field = field,
                                 )
                             }
                         }
+
                         interpretation.totalAmount?.let { field ->
                             item {
                                 InterpretationField(
-                                    "Totale",
-                                    formatAmount(field.value, interpretation.currency?.value),
-                                    field,
+                                    label = "Totale",
+                                    value = formatAmount(
+                                        field.value,
+                                        interpretation.currency?.value,
+                                    ),
+                                    field = field,
                                 )
                             }
                         }
+
                         interpretation.currency?.let { field ->
-                            item { InterpretationField("Valuta", field.value, field) }
+                            item {
+                                InterpretationField(
+                                    label = "Valuta",
+                                    value = field.value,
+                                    field = field,
+                                )
+                            }
                         }
+
                         interpretation.vatNumber?.let { field ->
-                            item { InterpretationField("Partita IVA", field.value, field) }
+                            item {
+                                InterpretationField(
+                                    label = "Partita IVA",
+                                    value = field.value,
+                                    field = field,
+                                )
+                            }
                         }
+
                         interpretation.documentNumber?.let { field ->
-                            item { InterpretationField("Numero documento", field.value, field) }
+                            item {
+                                InterpretationField(
+                                    label = "Numero documento",
+                                    value = field.value,
+                                    field = field,
+                                )
+                            }
                         }
+
                         interpretation.paymentMethod?.let { field ->
                             item {
                                 InterpretationField(
-                                    "Pagamento",
-                                    field.value.displayName,
-                                    field,
+                                    label = "Pagamento",
+                                    value = field.value.displayName,
+                                    field = field,
                                 )
                             }
                         }
 
                         if (interpretation.products.isNotEmpty()) {
                             item {
-                                HorizontalDivider()
-                            }
-                            item {
                                 Text(
-                                    text = "Prodotti rilevati (${interpretation.products.size})",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    text = "Prodotti rilevati",
+                                    style = MaterialTheme.typography.titleLarge,
                                 )
                             }
+
                             items(interpretation.products) { field ->
                                 ProductField(
                                     field = field,
@@ -156,48 +217,46 @@ fun OcrResultScreen(
                         }
                     } else {
                         item {
-                            Text(
+                            InfoStrip(
                                 text = "Non ho trovato dati strutturati abbastanza affidabili. Il testo OCR resta disponibile sotto.",
-                                style = MaterialTheme.typography.bodyMedium,
+                                positive = false,
                             )
                         }
-                    }
-                    item {
-                        HorizontalDivider()
                     }
 
                     item {
                         Text(
                             text = "Testo OCR originale",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleLarge,
                         )
                     }
 
                     receipt.pages.forEach { page ->
                         item {
-                            Text(
-                                text = "Pagina ${page.pageIndex + 1}",
-                                style = MaterialTheme.typography.titleSmall,
-                            )
-                        }
-                        items(page.lines) { line ->
-                            val confidence = (line.confidence * 100f).roundToInt()
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            SectionCard(
+                                title = "Pagina ${page.pageIndex + 1}",
+                                subtitle = "Tempo OCR: ${page.totalTimeMs} ms",
                             ) {
-                                Text(line.text)
-                                Text(
-                                    text = "Affidabilità OCR: $confidence%",
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
+                                page.lines.forEach { line ->
+                                    val confidence =
+                                        (line.confidence * 100f).roundToInt()
+
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                    ) {
+                                        Text(
+                                            text = line.text,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                        Text(
+                                            text = "OCR $confidence%",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
                             }
-                        }
-                        item {
-                            Text(
-                                text = "Tempo OCR: ${page.totalTimeMs} ms",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
                         }
                     }
                 }
@@ -244,25 +303,21 @@ private fun InterpretationField(
 ) {
     val confidence = (field.confidence * 100f).roundToInt()
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
+    SectionCard {
+        KeyValueRow(
+            label = label,
+            value = value,
         )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyLarge,
+
+        StatusPill(
+            text = "${field.level.displayName} · $confidence%",
+            positive = confidence >= 70,
         )
-        Text(
-            text = "Affidabilità: ${field.level.displayName} ($confidence%)",
-            style = MaterialTheme.typography.bodySmall,
-        )
+
         Text(
             text = "Evidenza OCR: ${field.evidence}",
             style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -275,43 +330,33 @@ private fun ProductField(
     val product = field.value
     val confidence = (field.confidence * 100f).roundToInt()
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+    SectionCard(
+        title = product.name,
     ) {
-        Text(
-            text = product.name,
-            style = MaterialTheme.typography.bodyLarge,
-        )
-
         product.quantity?.let { quantity ->
-            Text(
-                text = "Quantità: ${formatQuantity(quantity)}",
-                style = MaterialTheme.typography.bodyMedium,
+            KeyValueRow(
+                label = "Quantità",
+                value = formatQuantity(quantity),
             )
         }
 
         product.unitPrice?.let { unitPrice ->
-            Text(
-                text = "Prezzo unitario: ${formatAmount(unitPrice, currency)}",
-                style = MaterialTheme.typography.bodyMedium,
+            KeyValueRow(
+                label = "Prezzo unitario",
+                value = formatAmount(unitPrice, currency),
             )
         }
 
         product.lineTotal?.let { total ->
-            Text(
-                text = "Importo riga: ${formatAmount(total, currency)}",
-                style = MaterialTheme.typography.bodyMedium,
+            KeyValueRow(
+                label = "Importo",
+                value = formatAmount(total, currency),
             )
         }
 
-        Text(
-            text = "Affidabilità: ${field.level.displayName} ($confidence%)",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        Text(
-            text = "Evidenza OCR: ${field.evidence}",
-            style = MaterialTheme.typography.bodySmall,
+        StatusPill(
+            text = "${field.level.displayName} · $confidence%",
+            positive = confidence >= 70,
         )
     }
 }
@@ -319,12 +364,15 @@ private fun ProductField(
 private fun formatQuantity(quantity: BigDecimal): String =
     quantity.stripTrailingZeros().toPlainString().replace('.', ',')
 
-
 private fun formatAmount(
     amount: BigDecimal,
     currency: String?,
 ): String {
-    val number = amount.setScale(2).toPlainString().replace('.', ',')
+    val number = amount
+        .setScale(2, RoundingMode.HALF_UP)
+        .toPlainString()
+        .replace('.', ',')
+
     return when (currency) {
         "EUR" -> "$number €"
         "USD" -> "$number \$"
