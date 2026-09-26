@@ -34,6 +34,7 @@ data class ArchiveMirrorSummary(
     val receiptCount: Int,
     val successfulCopies: Int,
     val failedCopies: Int,
+    val pendingDeletionFailures: Int = 0,
 )
 
 @Singleton
@@ -63,7 +64,7 @@ class ReceiptMirrorManager @Inject constructor(
 
     @Synchronized
     fun mirrorArchive(receipts: List<ReceiptWithDetails>): ArchiveMirrorSummary {
-        processPendingDeletions()
+        val pendingDeletionFailures = processPendingDeletions()
         var successes = 0
         var failures = 0
 
@@ -84,6 +85,7 @@ class ReceiptMirrorManager @Inject constructor(
             receiptCount = receipts.size,
             successfulCopies = successes,
             failedCopies = failures,
+            pendingDeletionFailures = pendingDeletionFailures,
         )
     }
 
@@ -106,22 +108,34 @@ class ReceiptMirrorManager @Inject constructor(
         )
     }
 
-    private fun processPendingDeletions() {
+    private fun processPendingDeletions(): Int {
         val state = settings.state.value
+        var failures = 0
 
         pendingDeletions.all().forEach { pending ->
             val treeUri =
                 when (pending.target) {
                     StorageTarget.PHONE -> state.phone.uri
                     StorageTarget.DRIVE -> state.drive.uri
-                } ?: return@forEach
+                }
 
-            deleteTargetDirectory(
+            if (treeUri == null) {
+                failures++
+                return@forEach
+            }
+
+            val result = deleteTargetDirectory(
                 target = pending.target,
                 treeUri = treeUri,
                 directoryName = pending.directoryName,
             )
+
+            if (!result.success) {
+                failures++
+            }
         }
+
+        return failures
     }
 
     private fun deleteTargetDirectory(
