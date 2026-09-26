@@ -1,12 +1,21 @@
 package com.milanstevic.garanzia.ui.components
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -14,6 +23,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -61,7 +71,11 @@ fun SectionCard(
     content: @Composable () -> Unit,
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = tween(220, easing = FastOutSlowInEasing),
+            ),
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
@@ -207,5 +221,49 @@ fun KeyValueRow(
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
         )
+    }
+}
+
+
+@Composable
+fun PremiumLoadingCard(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    val transition = rememberInfiniteTransition(label = "premiumLoading")
+    val pulse = transition.animateFloat(
+        initialValue = 0.45f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 900,
+                easing = FastOutSlowInEasing,
+            ),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "loadingPulse",
+    )
+
+    SectionCard(
+        modifier = modifier,
+        title = label,
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp)
+                .alpha(pulse.value),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer,
+        ) {}
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.72f)
+                .height(10.dp)
+                .alpha(pulse.value * 0.85f),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {}
     }
 }
