@@ -43,13 +43,22 @@ data class ReceiptConfirmationDraft(
         get() =
             merchant.isNotBlank() &&
                 isValidDate(purchaseDate) &&
-                parseMoney(totalAmount) != null &&
+                isValidMoney(totalAmount) &&
                 products.isNotEmpty() &&
                 products.all { product ->
                     product.name.isNotBlank() &&
-                        (product.lineTotal.isBlank() || parseMoney(product.lineTotal) != null) &&
-                        (product.unitPrice.isBlank() || parseMoney(product.unitPrice) != null) &&
-                        (product.quantity.isBlank() || parseQuantity(product.quantity) != null)
+                        (
+                            product.lineTotal.isBlank() ||
+                                isValidMoney(product.lineTotal)
+                            ) &&
+                        (
+                            product.unitPrice.isBlank() ||
+                                isValidMoney(product.unitPrice)
+                            ) &&
+                        (
+                            product.quantity.isBlank() ||
+                                isValidQuantity(product.quantity)
+                            )
                 }
 
     val attentionCount: Int
@@ -184,24 +193,32 @@ data class ReceiptConfirmationDraft(
         }
 
         fun parseMoney(value: String): BigDecimal? {
-            val normalized = value
+            val raw = value
                 .trim()
                 .replace("€", "")
+                .replace("$", "")
+                .replace("£", "")
                 .replace("EUR", "", ignoreCase = true)
+                .replace("USD", "", ignoreCase = true)
+                .replace("GBP", "", ignoreCase = true)
                 .replace(" ", "")
-                .let { raw ->
-                    when {
-                        raw.contains(',') && raw.contains('.') ->
-                            raw.replace(".", "").replace(',', '.')
-                        raw.contains(',') ->
-                            raw.replace(',', '.')
-                        else -> raw
-                    }
-                }
 
-            return normalized
-                .takeIf { it.isNotBlank() }
-                ?.let { runCatching { BigDecimal(it) }.getOrNull() }
+            if (raw.isBlank()) return null
+
+            val normalized = when {
+                raw.contains(',') && raw.contains('.') ->
+                    raw.replace(".", "").replace(',', '.')
+
+                raw.contains(',') ->
+                    raw.replace(',', '.')
+
+                ITALIAN_THOUSANDS_REGEX.matches(raw) ->
+                    raw.replace(".", "")
+
+                else -> raw
+            }
+
+            return runCatching { BigDecimal(normalized) }.getOrNull()
         }
 
         fun parseQuantity(value: String): BigDecimal? {
@@ -210,5 +227,14 @@ data class ReceiptConfirmationDraft(
                 .takeIf { it.isNotBlank() }
                 ?.let { runCatching { BigDecimal(it) }.getOrNull() }
         }
+
+        private fun isValidMoney(value: String): Boolean =
+            parseMoney(value)?.signum()?.let { it >= 0 } == true
+
+        private fun isValidQuantity(value: String): Boolean =
+            parseQuantity(value)?.signum()?.let { it > 0 } == true
+
+        private val ITALIAN_THOUSANDS_REGEX =
+            Regex("""^[+-]?\d{1,3}(?:\.\d{3})+$""")
     }
 }
