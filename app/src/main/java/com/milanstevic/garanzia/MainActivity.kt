@@ -367,7 +367,7 @@ private fun GaranziaApp(
 
     LaunchedEffect(
         archiveFilters.query,
-        archiveReceipts.size,
+        archiveReceipts.hashCode(),
     ) {
         val query = archiveFilters.query.trim()
 
@@ -683,6 +683,7 @@ private fun GaranziaApp(
                 ReceiptArchiveScreen(
                     receipts = archiveReceipts,
                     filters = archiveFilters,
+                    matchingIds = archiveSearchIds,
                     onFiltersChange = { archiveFilters = it },
                     onOpenReceipt = { receiptId ->
                         selectedArchiveReceiptId = receiptId
