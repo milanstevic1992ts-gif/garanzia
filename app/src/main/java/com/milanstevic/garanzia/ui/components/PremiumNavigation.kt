@@ -13,6 +13,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
 enum class PremiumDestination {
     HOME,
@@ -31,7 +32,7 @@ fun PremiumBottomBar(
     NavigationBar(
         modifier = modifier.fillMaxWidth(),
         containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = androidx.compose.ui.unit.dp(8f),
+        tonalElevation = 8.dp,
     ) {
         NavigationBarItem(
             selected = selected == PremiumDestination.HOME,
