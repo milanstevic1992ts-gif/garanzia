@@ -2,21 +2,26 @@ package com.milanstevic.garanzia.archive
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.milanstevic.garanzia.data.local.ReceiptWithDetails
+import com.milanstevic.garanzia.ui.components.GaranziaHeader
+import com.milanstevic.garanzia.ui.components.KeyValueRow
+import com.milanstevic.garanzia.ui.components.SectionCard
+import com.milanstevic.garanzia.ui.components.StatusPill
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
@@ -28,143 +33,154 @@ fun ReceiptArchiveDetailScreen(
     onOpenPdf: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Scaffold { innerPadding ->
-        Column(
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { innerPadding ->
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            OutlinedButton(onClick = onBack) {
-                Text("Indietro all'archivio")
-            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    OutlinedButton(onClick = onBack) {
+                        Text("Indietro")
+                    }
 
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                item {
-                    Text(
-                        text = details.receipt.merchant,
-                        style = MaterialTheme.typography.headlineSmall,
+                    GaranziaHeader(
+                        eyebrow = "Scontrino salvato",
+                        title = details.receipt.merchant,
+                        subtitle = formatDetailDate(details.receipt.purchaseDate),
+                        modifier = Modifier.weight(1f),
                     )
                 }
+            }
 
-                item {
-                    ArchiveDetailLine("Data", formatDetailDate(details.receipt.purchaseDate))
-                    details.receipt.purchaseTime?.let {
-                        ArchiveDetailLine("Ora", it)
-                    }
-                    ArchiveDetailLine(
-                        "Totale",
-                        formatDetailAmount(
+            item {
+                SectionCard(
+                    title = "Riepilogo acquisto",
+                    subtitle = "Dati confermati e conservati nell'archivio.",
+                ) {
+                    KeyValueRow(
+                        label = "Totale",
+                        value = formatDetailAmount(
                             details.receipt.totalAmount,
                             details.receipt.currency,
                         ),
                     )
+
+                    details.receipt.purchaseTime?.let {
+                        KeyValueRow("Ora", it)
+                    }
                     details.receipt.documentNumber?.let {
-                        ArchiveDetailLine("Documento", it)
+                        KeyValueRow("Documento", it)
                     }
                     details.receipt.vatNumber?.let {
-                        ArchiveDetailLine("Partita IVA", it)
+                        KeyValueRow("Partita IVA", it)
                     }
                     details.receipt.paymentMethod?.let {
-                        ArchiveDetailLine("Pagamento", it)
+                        KeyValueRow("Pagamento", it)
                     }
                 }
+            }
 
-                item {
-                    HorizontalDivider()
-                    Text(
-                        text = "Prodotti (${details.products.size})",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 10.dp),
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    StatusPill(
+                        text = "${details.products.size} prodotti",
+                        positive = true,
+                    )
+                    StatusPill(
+                        text = "${details.pages.size} pagine",
+                        positive = true,
                     )
                 }
+            }
 
-                items(
-                    items = details.products.sortedBy { it.position },
-                    key = { it.id },
-                ) { product ->
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Text(
-                            text = product.name,
-                            style = MaterialTheme.typography.titleSmall,
+            item {
+                Text(
+                    text = "Prodotti",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+
+            items(
+                items = details.products.sortedBy { it.position },
+                key = { it.id },
+            ) { product ->
+                SectionCard {
+                    Text(
+                        text = product.name,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+
+                    product.quantity?.let {
+                        KeyValueRow(
+                            label = "Quantità",
+                            value = formatDecimal(it),
                         )
-                        product.quantity?.let {
-                            Text("Quantità: ${formatDecimal(it)}")
-                        }
-                        product.unitPrice?.let {
-                            Text(
-                                "Prezzo unitario: ${formatDetailAmount(it, details.receipt.currency)}",
-                            )
-                        }
-                        product.lineTotal?.let {
-                            Text(
-                                "Importo riga: ${formatDetailAmount(it, details.receipt.currency)}",
-                            )
-                        }
+                    }
+                    product.unitPrice?.let {
+                        KeyValueRow(
+                            label = "Prezzo unitario",
+                            value = formatDetailAmount(
+                                it,
+                                details.receipt.currency,
+                            ),
+                        )
+                    }
+                    product.lineTotal?.let {
+                        KeyValueRow(
+                            label = "Importo",
+                            value = formatDetailAmount(
+                                it,
+                                details.receipt.currency,
+                            ),
+                        )
                     }
                 }
+            }
 
-                item {
-                    HorizontalDivider()
-                    Text(
-                        text = "Scontrino originale (${details.pages.size} pagina/e)",
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 10.dp),
-                    )
-
-                    Text(
-                        text = "Le immagini originali vengono convertite in PDF solo quando lo apri, così l'archivio resta leggero e stabile.",
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
-
+            item {
+                SectionCard(
+                    title = "Documento originale",
+                    subtitle = "Il PDF viene generato solo quando lo apri, così l'archivio resta leggero.",
+                ) {
                     Button(
                         onClick = onOpenPdf,
                         enabled = details.pages.isNotEmpty(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp),
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text("Apri PDF integrato")
                     }
                 }
+            }
 
-                details.receipt.rawOcrText?.let { raw ->
-                    item {
-                        HorizontalDivider()
-                        Text(
-                            text = "Testo OCR originale",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(top = 10.dp),
-                        )
+            details.receipt.rawOcrText?.let { raw ->
+                item {
+                    SectionCard(
+                        title = "Testo OCR",
+                        subtitle = "Trascrizione originale usata per riconoscere i dati.",
+                    ) {
                         Text(
                             text = raw,
                             style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = 6.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun ArchiveDetailLine(
-    label: String,
-    value: String,
-) {
-    Text(
-        text = "$label: $value",
-        style = MaterialTheme.typography.bodyLarge,
-    )
 }
 
 private fun formatDetailDate(isoDate: String): String =
