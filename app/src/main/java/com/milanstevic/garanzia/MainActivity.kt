@@ -35,6 +35,9 @@ import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationScreen
 import com.milanstevic.garanzia.data.ReceiptArchiveState
 import com.milanstevic.garanzia.data.ReceiptRepository
+import com.milanstevic.garanzia.diagnostics.DiagnosticsManager
+import com.milanstevic.garanzia.diagnostics.DiagnosticsScreen
+import com.milanstevic.garanzia.diagnostics.DiagnosticsSnapshot
 import com.milanstevic.garanzia.intelligence.ReceiptInterpretation
 import com.milanstevic.garanzia.intelligence.ReceiptInterpreter
 import com.milanstevic.garanzia.ocr.OcrReceiptResult
@@ -44,6 +47,7 @@ import com.milanstevic.garanzia.scanner.DocumentScannerManager
 import com.milanstevic.garanzia.scanner.FallbackCameraScreen
 import com.milanstevic.garanzia.scanner.ReceiptFileStore
 import com.milanstevic.garanzia.scanner.ReceiptReviewScreen
+import com.milanstevic.garanzia.storage.BackgroundSyncScheduler
 import com.milanstevic.garanzia.storage.ReceiptMirrorManager
 import com.milanstevic.garanzia.storage.StorageSettings
 import com.milanstevic.garanzia.storage.StorageSettingsScreen
@@ -81,6 +85,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var receiptPdfManager: ReceiptPdfManager
 
+    @Inject
+    lateinit var diagnosticsManager: DiagnosticsManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -95,6 +102,7 @@ class MainActivity : ComponentActivity() {
                     storageSettings = storageSettings,
                     receiptMirrorManager = receiptMirrorManager,
                     receiptPdfManager = receiptPdfManager,
+                    diagnosticsManager = diagnosticsManager,
                 )
             }
         }
@@ -111,6 +119,7 @@ private enum class AppScreen {
     ARCHIVE_DETAIL,
     PDF_VIEWER,
     STORAGE,
+    DIAGNOSTICS,
 }
 
 @Composable
@@ -123,6 +132,7 @@ private fun GaranziaApp(
     storageSettings: StorageSettings,
     receiptMirrorManager: ReceiptMirrorManager,
     receiptPdfManager: ReceiptPdfManager,
+    diagnosticsManager: DiagnosticsManager,
 ) {
     val scope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(AppScreen.HOME) }
@@ -147,6 +157,8 @@ private fun GaranziaApp(
     var pdfFile by remember { mutableStateOf<File?>(null) }
     var pdfLoading by remember { mutableStateOf(false) }
     var pdfError by remember { mutableStateOf<String?>(null) }
+    var diagnosticsSnapshot by remember { mutableStateOf<DiagnosticsSnapshot?>(null) }
+    var diagnosticsLoading by remember { mutableStateOf(false) }
 
     var ocrStatus by remember { mutableStateOf("Preparazione OCR") }
     var ocrProgress by remember { mutableStateOf<Int?>(null) }
@@ -233,6 +245,19 @@ private fun GaranziaApp(
     }
 
 
+    fun openDiagnostics() {
+        diagnosticsLoading = true
+        screen = AppScreen.DIAGNOSTICS
+        scope.launch {
+            try {
+                diagnosticsSnapshot = diagnosticsManager.runChecks()
+            } finally {
+                diagnosticsLoading = false
+            }
+        }
+    }
+
+
     fun syncArchiveCopies() {
         if (storageSyncInProgress) return
         if (!storageState.phoneConfigured && !storageState.driveConfigured) {
@@ -287,6 +312,7 @@ private fun GaranziaApp(
             uri = uri,
             label = label,
         )
+        BackgroundSyncScheduler.enqueueNow(activity)
         storageMessage = "Cartella salvata. Avvio sincronizzazione automatica."
     }
 
@@ -488,6 +514,8 @@ private fun GaranziaApp(
                                         )
                                     }
 
+                                    BackgroundSyncScheduler.enqueueNow(activity)
+
                                     storageMessage =
                                         if (
                                             storageState.phoneConfigured ||
@@ -611,8 +639,16 @@ private fun GaranziaApp(
                 storageMessage = "Cartella Google Drive rimossa."
             },
             onSyncNow = ::syncArchiveCopies,
+            onOpenDiagnostics = ::openDiagnostics,
             onOpenHome = { screen = AppScreen.HOME },
             onOpenArchive = { screen = AppScreen.ARCHIVE },
+        )
+
+        AppScreen.DIAGNOSTICS -> DiagnosticsScreen(
+            snapshot = diagnosticsSnapshot,
+            loading = diagnosticsLoading,
+            onRunChecks = ::openDiagnostics,
+            onBack = { screen = AppScreen.STORAGE },
         )
         }
     }
