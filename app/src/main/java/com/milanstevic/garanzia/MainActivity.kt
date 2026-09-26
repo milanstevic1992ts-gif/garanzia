@@ -12,6 +12,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -365,7 +367,12 @@ private fun GaranziaApp(
         }
     }
 
-    when (screen) {
+    Crossfade(
+        targetState = screen,
+        animationSpec = tween(durationMillis = 220),
+        label = "garanziaScreenTransition",
+    ) { currentScreen ->
+        when (currentScreen) {
         AppScreen.HOME -> HomeScreen(
             onScanReceipt = ::startScan,
             onOpenArchive = { screen = AppScreen.ARCHIVE },
@@ -517,9 +524,12 @@ private fun GaranziaApp(
                 selectedArchiveReceiptId = receiptId
                 screen = AppScreen.ARCHIVE_DETAIL
             },
-            onBack = {
+            onOpenHome = {
                 selectedArchiveReceiptId = null
                 screen = AppScreen.HOME
+            },
+            onOpenStorage = {
+                screen = AppScreen.STORAGE
             },
         )
 
@@ -547,9 +557,12 @@ private fun GaranziaApp(
                     onOpenReceipt = { receiptId ->
                         selectedArchiveReceiptId = receiptId
                     },
-                    onBack = {
+                    onOpenHome = {
                         selectedArchiveReceiptId = null
                         screen = AppScreen.HOME
+                    },
+                    onOpenStorage = {
+                        screen = AppScreen.STORAGE
                     },
                 )
             }
@@ -589,7 +602,9 @@ private fun GaranziaApp(
                 storageMessage = "Cartella Google Drive rimossa."
             },
             onSyncNow = ::syncArchiveCopies,
-            onBack = { screen = AppScreen.HOME },
+            onOpenHome = { screen = AppScreen.HOME },
+            onOpenArchive = { screen = AppScreen.ARCHIVE },
         )
+        }
     }
 }
