@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.milanstevic.garanzia.ui.components.GaranziaHeader
 import com.milanstevic.garanzia.ui.components.InfoStrip
+import com.milanstevic.garanzia.ui.components.PremiumBottomBar
+import com.milanstevic.garanzia.ui.components.PremiumDestination
 import com.milanstevic.garanzia.ui.components.SectionCard
 import com.milanstevic.garanzia.ui.components.StatusPill
 
@@ -31,10 +33,19 @@ fun StorageSettingsScreen(
     onClearPhone: () -> Unit,
     onClearDrive: () -> Unit,
     onSyncNow: () -> Unit,
-    onBack: () -> Unit,
+    onOpenHome: () -> Unit,
+    onOpenArchive: () -> Unit,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            PremiumBottomBar(
+                selected = PremiumDestination.STORAGE,
+                onHome = onOpenHome,
+                onArchive = onOpenArchive,
+                onStorage = {},
+            )
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -44,10 +55,6 @@ fun StorageSettingsScreen(
                 .padding(horizontal = 20.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            OutlinedButton(onClick = onBack) {
-                Text("Indietro")
-            }
-
             GaranziaHeader(
                 eyebrow = "Backup e copie",
                 title = "Archiviazione",
