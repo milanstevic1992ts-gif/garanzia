@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -14,6 +16,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.milanstevic.garanzia.ui.components.GaranziaHeader
+import com.milanstevic.garanzia.ui.components.InfoStrip
+import com.milanstevic.garanzia.ui.components.SectionCard
+import com.milanstevic.garanzia.ui.components.StatusPill
 
 @Composable
 fun StorageSettingsScreen(
@@ -27,26 +33,40 @@ fun StorageSettingsScreen(
     onSyncNow: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Scaffold { innerPadding ->
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(
-                text = "Archiviazione",
-                style = MaterialTheme.typography.headlineSmall,
+            OutlinedButton(onClick = onBack) {
+                Text("Indietro")
+            }
+
+            GaranziaHeader(
+                eyebrow = "Backup e copie",
+                title = "Archiviazione",
+                subtitle = "Scegli dove conservare le copie esterne dei tuoi scontrini.",
             )
 
-            Text(
-                text = "La copia interna dell'app resta sempre attiva. Qui puoi aggiungere una copia fisica sul telefono e una seconda copia su Google Drive.",
-                style = MaterialTheme.typography.bodyMedium,
+            StatusPill(
+                text =
+                    if (state.bothConfigured) {
+                        "Doppia copia attiva"
+                    } else {
+                        "Configurazione incompleta"
+                    },
+                positive = state.bothConfigured,
             )
 
             StorageTargetCard(
-                title = "Cartella sul telefono",
+                title = "Telefono",
+                description = "Una copia fisica in una cartella scelta da te.",
                 configured = state.phoneConfigured,
                 label = state.phone.label,
                 onChoose = onChoosePhone,
@@ -54,45 +74,50 @@ fun StorageSettingsScreen(
             )
 
             StorageTargetCard(
-                title = "Cartella Google Drive",
+                title = "Google Drive",
+                description = "Una seconda copia nel tuo spazio Drive.",
                 configured = state.driveConfigured,
                 label = state.drive.label,
-                helper = "Nel selettore Android scegli Google Drive dal pannello laterale e poi la cartella desiderata.",
+                helper = "Nel selettore Android apri Google Drive dal menu laterale e scegli la cartella.",
                 onChoose = onChooseDrive,
                 onClear = onClearDrive,
             )
 
+            SectionCard(
+                title = "Sincronizzazione",
+                subtitle = "Controlla l'intero archivio e completa le copie mancanti.",
+            ) {
+                Button(
+                    onClick = onSyncNow,
+                    enabled =
+                        !syncInProgress &&
+                            (state.phoneConfigured || state.driveConfigured),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        if (syncInProgress) {
+                            "Sincronizzazione…"
+                        } else {
+                            "Sincronizza archivio adesso"
+                        },
+                    )
+                }
+
+                syncMessage?.let {
+                    InfoStrip(
+                        text = it,
+                        positive =
+                            !it.contains("erro", ignoreCase = true) &&
+                                !it.contains("riprov", ignoreCase = true),
+                    )
+                }
+            }
+
             Text(
-                text =
-                    if (state.bothConfigured) {
-                        "Doppia copia automatica: ATTIVA"
-                    } else {
-                        "Doppia copia automatica: configura entrambe le cartelle"
-                    },
-                style = MaterialTheme.typography.titleMedium,
+                text = "La copia interna dell'app rimane sempre attiva, anche se telefono o Drive non sono configurati.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
-            Button(
-                onClick = onSyncNow,
-                enabled = !syncInProgress && (state.phoneConfigured || state.driveConfigured),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (syncInProgress) "Sincronizzazione…" else "Sincronizza archivio adesso")
-            }
-
-            syncMessage?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-
-            OutlinedButton(
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Torna alla home")
-            }
         }
     }
 }
@@ -100,55 +125,56 @@ fun StorageSettingsScreen(
 @Composable
 private fun StorageTargetCard(
     title: String,
+    description: String,
     configured: Boolean,
     label: String?,
     helper: String? = null,
     onChoose: () -> Unit,
     onClear: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
+    SectionCard(
+        title = title,
+        subtitle = description,
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-            )
+        StatusPill(
+            text =
+                if (configured) {
+                    "Configurata"
+                } else {
+                    "Non configurata"
+                },
+            positive = configured,
+        )
 
+        if (configured) {
             Text(
-                text =
-                    if (configured) {
-                        "Configurata: ${label ?: "cartella selezionata"}"
-                    } else {
-                        "Non configurata"
-                    },
+                text = label ?: "Cartella selezionata",
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
             )
+        }
 
-            helper?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
+        helper?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
-            Button(
-                onClick = onChoose,
+        FilledTonalButton(
+            onClick = onChoose,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (configured) "Cambia cartella" else "Scegli cartella")
+        }
+
+        if (configured) {
+            OutlinedButton(
+                onClick = onClear,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (configured) "Cambia cartella" else "Scegli cartella")
-            }
-
-            if (configured) {
-                OutlinedButton(
-                    onClick = onClear,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Rimuovi configurazione")
-                }
+                Text("Rimuovi configurazione")
             }
         }
     }
