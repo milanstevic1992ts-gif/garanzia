@@ -37,13 +37,18 @@ import java.time.format.DateTimeFormatter
 fun ReceiptArchiveScreen(
     receipts: List<ReceiptWithDetails>,
     filters: ArchiveFilterState,
+    matchingIds: Set<String>?,
     onFiltersChange: (ArchiveFilterState) -> Unit,
     onOpenReceipt: (String) -> Unit,
     onOpenHome: () -> Unit,
     onOpenStorage: () -> Unit,
     databaseError: String?,
 ) {
-    val filtered = ReceiptArchiveFilter.apply(receipts, filters)
+    val filtered = ReceiptArchiveFilter.apply(
+        receipts = receipts,
+        state = filters,
+        matchingIds = matchingIds,
+    )
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
