@@ -51,6 +51,7 @@ object ReceiptArchiveFilter {
     fun apply(
         receipts: List<ReceiptWithDetails>,
         state: ArchiveFilterState,
+        matchingIds: Set<String>? = null,
     ): List<ReceiptWithDetails> {
         if (!state.isValid) return emptyList()
 
@@ -61,10 +62,10 @@ object ReceiptArchiveFilter {
         return receipts
             .asSequence()
             .filter { details ->
-                if (query.isBlank()) {
-                    true
-                } else {
-                    searchableText(details).contains(query)
+                when {
+                    query.isBlank() -> true
+                    matchingIds != null -> details.receipt.id in matchingIds
+                    else -> searchableText(details).contains(query)
                 }
             }
             .filter { details ->
