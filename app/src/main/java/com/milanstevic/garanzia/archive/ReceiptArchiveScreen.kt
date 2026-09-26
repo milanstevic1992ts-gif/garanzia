@@ -41,6 +41,7 @@ fun ReceiptArchiveScreen(
     onOpenReceipt: (String) -> Unit,
     onOpenHome: () -> Unit,
     onOpenStorage: () -> Unit,
+    databaseError: String?,
 ) {
     val filtered = ReceiptArchiveFilter.apply(receipts, filters)
 
@@ -79,6 +80,13 @@ fun ReceiptArchiveScreen(
                 StatusPill(
                     text = "${receipts.size} totali",
                     positive = true,
+                )
+            }
+
+            databaseError?.let {
+                InfoStrip(
+                    text = "Archivio temporaneamente non leggibile: $it. Riprovo automaticamente.",
+                    positive = false,
                 )
             }
 
@@ -162,6 +170,13 @@ fun ReceiptArchiveScreen(
             }
 
             when {
+                databaseError != null -> {
+                    InfoStrip(
+                        text = "I dati non vengono cancellati. Attendo il prossimo tentativo di lettura del database.",
+                        positive = false,
+                    )
+                }
+
                 receipts.isEmpty() -> {
                     InfoStrip(
                         text = "L'archivio è ancora vuoto. Scansiona e conferma il primo scontrino.",
