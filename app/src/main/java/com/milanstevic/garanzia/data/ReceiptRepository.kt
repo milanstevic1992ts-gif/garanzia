@@ -13,8 +13,16 @@ import java.time.format.ResolverStyle
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
+
+data class ReceiptArchiveState(
+    val receipts: List<ReceiptWithDetails> = emptyList(),
+    val error: String? = null,
+)
 
 @Singleton
 class ReceiptRepository @Inject constructor(
@@ -93,13 +101,46 @@ class ReceiptRepository @Inject constructor(
         return receiptId
     }
 
+    fun observeArchiveState(): Flow<ReceiptArchiveState> =
+        flow {
+            while (true) {
+                try {
+                    receiptDao.observeReceipts().collect { receipts ->
+                        emit(
+                            ReceiptArchiveState(
+                                receipts = receipts,
+                                error = null,
+                            ),
+                        )
+                    }
+                    return@flow
+                } catch (t: Throwable) {
+                    if (t is CancellationException) throw t
+
+                    emit(
+                        ReceiptArchiveState(
+                            receipts = emptyList(),
+                            error = t.message ?: "Errore lettura archivio",
+                        ),
+                    )
+                    delay(DATABASE_RETRY_MS)
+                }
+            }
+        }
+
     fun observeReceipts(): Flow<List<ReceiptWithDetails>> =
-        receiptDao.observeReceipts()
-            .catch { emit(emptyList()) }
+        flow {
+            observeArchiveState().collect { state ->
+                emit(state.receipts)
+            }
+        }
 
     fun observeReceiptCount(): Flow<Int> =
-        receiptDao.observeReceiptCount()
-            .catch { emit(0) }
+        flow {
+            observeArchiveState().collect { state ->
+                emit(state.receipts.size)
+            }
+        }
 
     suspend fun getReceipt(receiptId: String): ReceiptWithDetails? =
         receiptDao.getReceipt(receiptId)
@@ -109,6 +150,8 @@ class ReceiptRepository @Inject constructor(
     }
 
     private companion object {
+        const val DATABASE_RETRY_MS = 2_000L
+
         val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter
             .ofPattern("dd/MM/uuuu")
             .withResolverStyle(ResolverStyle.STRICT)
