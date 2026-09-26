@@ -37,9 +37,7 @@ class ReceiptSyncWorker(
 
         val storage = storageSettings.state.value
         if (!storage.phoneConfigured && !storage.driveConfigured) {
-            syncStatusStore.markResult(
-                successfulCopies = 0,
-                failedCopies = 0,
+            syncStatusStore.markSkipped(
                 message = "Nessuna cartella esterna configurata",
             )
             return@withContext Result.success()
