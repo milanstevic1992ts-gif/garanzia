@@ -5,7 +5,9 @@ import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
 import com.milanstevic.garanzia.data.local.ReceiptDao
 import com.milanstevic.garanzia.data.local.ReceiptEntity
 import com.milanstevic.garanzia.data.local.ReceiptPageEntity
+import com.milanstevic.garanzia.data.local.ReceiptFtsQuery
 import com.milanstevic.garanzia.data.local.ReceiptProductEntity
+import com.milanstevic.garanzia.data.local.ReceiptSearchEntity
 import com.milanstevic.garanzia.data.local.ReceiptWithDetails
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -92,6 +94,10 @@ class ReceiptRepository @Inject constructor(
             receipt = receipt,
             products = products,
             pages = pages,
+            search = ReceiptSearchEntity.from(
+                receipt = receipt,
+                products = products,
+            ),
         )
 
         checkNotNull(receiptDao.getReceipt(receiptId)) {
@@ -153,6 +159,10 @@ class ReceiptRepository @Inject constructor(
         receiptDao.updateReceiptGraph(
             receipt = updatedReceipt,
             products = products,
+            search = ReceiptSearchEntity.from(
+                receipt = updatedReceipt,
+                products = products,
+            ),
         )
 
         checkNotNull(receiptDao.getReceipt(receiptId)) {
@@ -208,8 +218,17 @@ class ReceiptRepository @Inject constructor(
         receiptDao.getReceipts()
 
 
+    suspend fun searchReceiptIds(query: String): Set<String> {
+        val ftsQuery = ReceiptFtsQuery.build(query)
+            ?: return emptySet()
+
+        return receiptDao
+            .searchReceiptIds(ftsQuery)
+            .toSet()
+    }
+
     suspend fun deleteReceipt(receiptId: String) {
-        receiptDao.deleteReceipt(receiptId)
+        receiptDao.deleteReceiptGraph(receiptId)
     }
 
     private companion object {
