@@ -283,11 +283,13 @@ private fun GaranziaApp(
                 val summary = withContext(Dispatchers.IO) {
                     receiptMirrorManager.mirrorArchive(archiveReceipts)
                 }
+                val totalFailures =
+                    summary.failedCopies + summary.pendingDeletionFailures
                 storageMessage =
-                    if (summary.failedCopies == 0) {
+                    if (totalFailures == 0) {
                         "Sincronizzazione completata: ${summary.successfulCopies} copie verificate."
                     } else {
-                        "Sincronizzazione parziale: ${summary.successfulCopies} copie OK, ${summary.failedCopies} da riprovare."
+                        "Sincronizzazione parziale: ${summary.successfulCopies} copie OK, $totalFailures operazioni da riprovare."
                     }
             } finally {
                 storageSyncInProgress = false
@@ -353,11 +355,13 @@ private fun GaranziaApp(
                 val summary = withContext(Dispatchers.IO) {
                     receiptMirrorManager.mirrorArchive(archiveReceipts)
                 }
+                val totalFailures =
+                    summary.failedCopies + summary.pendingDeletionFailures
                 storageMessage =
-                    if (summary.failedCopies == 0) {
+                    if (totalFailures == 0) {
                         "Copie esterne aggiornate."
                     } else {
-                        "${summary.failedCopies} copie esterne da riprovare."
+                        "$totalFailures operazioni esterne da riprovare."
                     }
             } finally {
                 storageSyncInProgress = false
