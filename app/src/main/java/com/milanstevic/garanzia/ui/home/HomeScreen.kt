@@ -38,6 +38,7 @@ fun HomeScreen(
     savedReceiptCount: Int,
     dualCopyConfigured: Boolean,
     storageMessage: String?,
+    databaseError: String?,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -82,6 +83,13 @@ fun HomeScreen(
                             "—"
                         },
                     modifier = Modifier.weight(1f),
+                )
+            }
+
+            databaseError?.let {
+                InfoStrip(
+                    text = "Problema archivio: $it · nuovo tentativo automatico in corso.",
+                    positive = false,
                 )
             }
 
