@@ -1,5 +1,9 @@
 package com.milanstevic.garanzia.confirmation
 
+import com.milanstevic.garanzia.data.local.ReceiptEntity
+import com.milanstevic.garanzia.data.local.ReceiptPageEntity
+import com.milanstevic.garanzia.data.local.ReceiptProductEntity
+import com.milanstevic.garanzia.data.local.ReceiptWithDetails
 import com.milanstevic.garanzia.intelligence.InterpretedField
 import com.milanstevic.garanzia.intelligence.ReceiptInterpretation
 import com.milanstevic.garanzia.intelligence.ReceiptPaymentMethod
@@ -13,6 +17,54 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReceiptConfirmationDraftTest {
+
+    @Test
+    fun storedReceiptBecomesEditableDraftWithoutReviewFlags() {
+        val details = ReceiptWithDetails(
+            receipt = ReceiptEntity(
+                id = "r1",
+                merchant = "BRICO TEST",
+                purchaseDate = "2026-09-24",
+                purchaseTime = "10:30",
+                totalAmount = "129.90",
+                currency = "EUR",
+                vatNumber = "12345678901",
+                documentNumber = "A100",
+                paymentMethod = "Carta",
+                rawOcrText = "raw",
+                confirmedAtEpochMs = 1L,
+            ),
+            products = listOf(
+                ReceiptProductEntity(
+                    id = 1L,
+                    receiptId = "r1",
+                    position = 0,
+                    name = "TRAPANO",
+                    quantity = "1",
+                    unitPrice = "129.90",
+                    lineTotal = "129.90",
+                    sourceConfidence = 0.95f,
+                ),
+            ),
+            pages = listOf(
+                ReceiptPageEntity(
+                    id = 1L,
+                    receiptId = "r1",
+                    pageIndex = 0,
+                    originalUri = "file:///receipt.jpg",
+                ),
+            ),
+        )
+
+        val draft = ReceiptConfirmationDraft.fromStored(details)
+
+        assertEquals("BRICO TEST", draft.merchant)
+        assertEquals("24/09/2026", draft.purchaseDate)
+        assertEquals("129,90", draft.totalAmount)
+        assertEquals("TRAPANO", draft.products.single().name)
+        assertTrue(draft.fieldsToReview.isEmpty())
+        assertTrue(draft.canConfirm)
+    }
 
     @Test
     fun manualFallbackStartsEmptyAndRequiresUserConfirmation() {
