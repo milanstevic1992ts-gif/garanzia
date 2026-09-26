@@ -25,6 +25,12 @@ class ReceiptPdfManager @Inject constructor(
     suspend fun createOrReplacePdf(
         details: ReceiptWithDetails,
     ): File = withContext(Dispatchers.IO) {
+        createOrReplacePdfBlocking(details)
+    }
+
+    fun createOrReplacePdfBlocking(
+        details: ReceiptWithDetails,
+    ): File {
         require(details.pages.isNotEmpty()) {
             "Lo scontrino non contiene pagine originali"
         }
@@ -95,7 +101,17 @@ class ReceiptPdfManager @Inject constructor(
             temporary.delete()
         }
 
-        output
+        return output
+    }
+
+    fun deleteCachedPdf(receiptId: String): Boolean {
+        val directory = File(context.cacheDir, "receipt_pdfs")
+        val pdf = File(directory, "$receiptId.pdf")
+        val temporary = File(directory, "$receiptId.pdf.tmp")
+
+        val pdfDeleted = !pdf.exists() || pdf.delete()
+        val temporaryDeleted = !temporary.exists() || temporary.delete()
+        return pdfDeleted && temporaryDeleted
     }
 
     private fun decodeForPdf(uri: Uri): Bitmap? {
