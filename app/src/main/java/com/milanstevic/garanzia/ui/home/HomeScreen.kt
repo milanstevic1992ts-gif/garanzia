@@ -1,5 +1,10 @@
 package com.milanstevic.garanzia.ui.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -127,12 +132,19 @@ fun HomeScreen(
                     positive = dualCopyConfigured,
                 )
 
-                storageMessage?.let {
-                    InfoStrip(
-                        text = it,
-                        positive = !it.contains("erro", ignoreCase = true) &&
-                            !it.contains("riprov", ignoreCase = true),
-                    )
+                AnimatedVisibility(
+                    visible = storageMessage != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    storageMessage?.let {
+                        InfoStrip(
+                            text = it,
+                            positive =
+                                !it.contains("erro", ignoreCase = true) &&
+                                    !it.contains("riprov", ignoreCase = true),
+                        )
+                    }
                 }
             }
 
