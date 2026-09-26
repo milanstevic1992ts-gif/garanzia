@@ -109,9 +109,49 @@ class ReceiptConfirmationDraftTest {
     }
 
     @Test
+    fun confirmationRejectsNegativeMoneyAndNonPositiveQuantity() {
+        val base = ReceiptConfirmationDraft.from(
+            interpretation(
+                merchant = field("NEGOZIO TEST SRL", 0.95f),
+                date = field(LocalDate.of(2026, 9, 24), 0.95f),
+                total = field(BigDecimal("99.90"), 0.95f),
+                products = listOf(
+                    field(
+                        ReceiptProduct(
+                            name = "TRAPANO BOSCH",
+                            quantity = BigDecimal.ONE,
+                            unitPrice = BigDecimal("99.90"),
+                            lineTotal = BigDecimal("99.90"),
+                        ),
+                        0.95f,
+                    ),
+                ),
+            ),
+        )
+
+        assertFalse(base.copy(totalAmount = "-1,00").canConfirm)
+        assertFalse(
+            base.copy(
+                products = base.products.map {
+                    it.copy(quantity = "0")
+                },
+            ).canConfirm,
+        )
+        assertFalse(
+            base.copy(
+                products = base.products.map {
+                    it.copy(unitPrice = "-10,00")
+                },
+            ).canConfirm,
+        )
+    }
+
+    @Test
     fun italianMoneyAndDateValidationAcceptExpectedFormats() {
         assertEquals(BigDecimal("1299.90"), ReceiptConfirmationDraft.parseMoney("1.299,90 €"))
+        assertEquals(BigDecimal("1234"), ReceiptConfirmationDraft.parseMoney("1.234"))
         assertEquals(BigDecimal("12.50"), ReceiptConfirmationDraft.parseMoney("12,50"))
+        assertEquals(BigDecimal("12.50"), ReceiptConfirmationDraft.parseMoney("$12.50"))
         assertTrue(ReceiptConfirmationDraft.isValidDate("24/09/2026"))
         assertFalse(ReceiptConfirmationDraft.isValidDate("31/02/2026"))
     }
