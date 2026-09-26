@@ -145,6 +145,10 @@ class ReceiptRepository @Inject constructor(
     suspend fun getReceipt(receiptId: String): ReceiptWithDetails? =
         receiptDao.getReceipt(receiptId)
 
+    suspend fun getAllReceipts(): List<ReceiptWithDetails> =
+        receiptDao.getReceipts()
+
+
     suspend fun deleteReceipt(receiptId: String) {
         receiptDao.deleteReceipt(receiptId)
     }
