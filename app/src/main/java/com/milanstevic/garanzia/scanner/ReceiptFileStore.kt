@@ -24,32 +24,77 @@ class ReceiptFileStore @Inject constructor(
     fun newCameraCaptureFile(): File =
         File(stagingDir, "capture_${UUID.randomUUID()}.jpg")
 
-    fun stageContentUris(sourceUris: List<Uri>): List<Uri> =
-        sourceUris.mapNotNull { source ->
-            runCatching {
+    fun stageContentUris(sourceUris: List<Uri>): List<Uri> {
+        if (sourceUris.isEmpty()) return emptyList()
+
+        val created = mutableListOf<File>()
+
+        return try {
+            sourceUris.forEach { source ->
                 val target = File(stagingDir, "scan_${UUID.randomUUID()}.jpg")
+                created += target
+
                 context.contentResolver.openInputStream(source).use { input ->
-                    requireNotNull(input) { "Unable to open scanned image" }
-                    target.outputStream().use { output -> input.copyTo(output) }
+                    requireNotNull(input) { "Impossibile aprire una pagina acquisita" }
+
+                    target.outputStream().use { output ->
+                        input.copyTo(output)
+                        output.flush()
+                    }
                 }
-                Uri.fromFile(target)
-            }.getOrNull()
+
+                require(target.isFile && target.length() > 0L) {
+                    "Una pagina acquisita risulta vuota"
+                }
+            }
+
+            created.map(Uri::fromFile)
+        } catch (_: Throwable) {
+            created.forEach(File::delete)
+            emptyList()
+        }
+    }
+
+    fun finalizeStaged(stagedUris: List<Uri>): List<Uri> {
+        if (stagedUris.isEmpty()) return emptyList()
+
+        val sources = stagedUris.mapNotNull { uri ->
+            uri.path?.let(::File)
         }
 
-    fun finalizeStaged(stagedUris: List<Uri>): List<Uri> =
-        stagedUris.mapNotNull { uri ->
-            runCatching {
-                val source = requireNotNull(uri.path).let(::File)
-                require(source.exists()) { "Staged receipt does not exist" }
+        if (
+            sources.size != stagedUris.size ||
+            sources.any { !it.isFile || it.parentFile != stagingDir }
+        ) {
+            return emptyList()
+        }
 
+        val targets = mutableListOf<File>()
+
+        return try {
+            sources.forEach { source ->
                 val target = File(originalsDir, "receipt_${UUID.randomUUID()}.jpg")
-                if (!source.renameTo(target)) {
-                    source.copyTo(target, overwrite = false)
-                    source.delete()
+                targets += target
+
+                source.inputStream().use { input ->
+                    target.outputStream().use { output ->
+                        input.copyTo(output)
+                        output.flush()
+                    }
                 }
-                Uri.fromFile(target)
-            }.getOrNull()
+
+                require(target.isFile && target.length() > 0L) {
+                    "Una pagina originale risulta vuota"
+                }
+            }
+
+            sources.forEach(File::delete)
+            targets.map(Uri::fromFile)
+        } catch (_: Throwable) {
+            targets.forEach(File::delete)
+            emptyList()
         }
+    }
 
     fun discardStaged(stagedUris: List<Uri>) {
         stagedUris.forEach { uri ->
