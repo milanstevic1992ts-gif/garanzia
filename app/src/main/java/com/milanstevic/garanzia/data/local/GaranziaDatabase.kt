@@ -9,9 +9,13 @@ import androidx.room.RoomDatabase
         ReceiptProductEntity::class,
         ReceiptPageEntity::class,
     ],
-    version = 1,
+    version = GaranziaDatabase.SCHEMA_VERSION,
     exportSchema = true,
 )
 abstract class GaranziaDatabase : RoomDatabase() {
     abstract fun receiptDao(): ReceiptDao
+
+    companion object {
+        const val SCHEMA_VERSION = 1
+    }
 }
