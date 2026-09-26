@@ -1,26 +1,40 @@
 package com.milanstevic.garanzia.storage
 
 import android.content.Context
-import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.milanstevic.garanzia.data.ReceiptRepository
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedInject
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-@HiltWorker
-class ReceiptSyncWorker @AssistedInject constructor(
-    @Assisted appContext: Context,
-    @Assisted workerParams: WorkerParameters,
-    private val repository: ReceiptRepository,
-    private val mirrorManager: ReceiptMirrorManager,
-    private val storageSettings: StorageSettings,
-    private val syncStatusStore: SyncStatusStore,
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface ReceiptSyncWorkerEntryPoint {
+    fun receiptRepository(): ReceiptRepository
+    fun receiptMirrorManager(): ReceiptMirrorManager
+    fun storageSettings(): StorageSettings
+    fun syncStatusStore(): SyncStatusStore
+}
+
+class ReceiptSyncWorker(
+    appContext: Context,
+    workerParams: WorkerParameters,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        val dependencies = EntryPointAccessors.fromApplication(
+            applicationContext,
+            ReceiptSyncWorkerEntryPoint::class.java,
+        )
+        val repository = dependencies.receiptRepository()
+        val mirrorManager = dependencies.receiptMirrorManager()
+        val storageSettings = dependencies.storageSettings()
+        val syncStatusStore = dependencies.syncStatusStore()
+
         val storage = storageSettings.state.value
         if (!storage.phoneConfigured && !storage.driveConfigured) {
             syncStatusStore.markResult(
