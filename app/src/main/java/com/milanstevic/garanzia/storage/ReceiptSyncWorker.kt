@@ -48,33 +48,30 @@ class ReceiptSyncWorker(
         return@withContext try {
             val receipts = repository.getAllReceipts()
 
-            if (receipts.isEmpty()) {
-                syncStatusStore.markResult(
-                    successfulCopies = 0,
-                    failedCopies = 0,
-                    message = "Archivio vuoto: nulla da sincronizzare",
-                )
+            val summary = mirrorManager.mirrorArchive(receipts)
+            val totalFailures =
+                summary.failedCopies + summary.pendingDeletionFailures
+
+            val message =
+                when {
+                    totalFailures > 0 ->
+                        "Sincronizzazione background parziale"
+                    receipts.isEmpty() ->
+                        "Archivio vuoto: pulizia esterna verificata"
+                    else ->
+                        "Sincronizzazione background completata"
+                }
+
+            syncStatusStore.markResult(
+                successfulCopies = summary.successfulCopies,
+                failedCopies = totalFailures,
+                message = message,
+            )
+
+            if (totalFailures == 0) {
                 Result.success()
             } else {
-                val summary = mirrorManager.mirrorArchive(receipts)
-                val message =
-                    if (summary.failedCopies == 0) {
-                        "Sincronizzazione background completata"
-                    } else {
-                        "Sincronizzazione background parziale"
-                    }
-
-                syncStatusStore.markResult(
-                    successfulCopies = summary.successfulCopies,
-                    failedCopies = summary.failedCopies,
-                    message = message,
-                )
-
-                if (summary.failedCopies == 0) {
-                    Result.success()
-                } else {
-                    Result.retry()
-                }
+                Result.retry()
             }
         } catch (t: Throwable) {
             syncStatusStore.markResult(
