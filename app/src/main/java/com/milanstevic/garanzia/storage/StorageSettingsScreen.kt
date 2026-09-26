@@ -1,5 +1,10 @@
 package com.milanstevic.garanzia.storage
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -110,13 +115,19 @@ fun StorageSettingsScreen(
                     )
                 }
 
-                syncMessage?.let {
-                    InfoStrip(
-                        text = it,
-                        positive =
-                            !it.contains("erro", ignoreCase = true) &&
-                                !it.contains("riprov", ignoreCase = true),
-                    )
+                AnimatedVisibility(
+                    visible = syncMessage != null,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically(),
+                ) {
+                    syncMessage?.let {
+                        InfoStrip(
+                            text = it,
+                            positive =
+                                !it.contains("erro", ignoreCase = true) &&
+                                    !it.contains("riprov", ignoreCase = true),
+                        )
+                    }
                 }
             }
 
