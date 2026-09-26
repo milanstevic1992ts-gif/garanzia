@@ -1,5 +1,6 @@
 package com.milanstevic.garanzia.confirmation
 
+import com.milanstevic.garanzia.data.local.ReceiptWithDetails
 import com.milanstevic.garanzia.intelligence.ReceiptInterpretation
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -89,6 +90,43 @@ data class ReceiptConfirmationDraft(
                     ConfirmationField.PURCHASE_DATE,
                     ConfirmationField.TOTAL,
                 ),
+            )
+
+        fun fromStored(
+            details: ReceiptWithDetails,
+        ): ReceiptConfirmationDraft =
+            ReceiptConfirmationDraft(
+                merchant = details.receipt.merchant,
+                purchaseDate = runCatching {
+                    LocalDate
+                        .parse(details.receipt.purchaseDate)
+                        .format(DATE_FORMAT)
+                }.getOrDefault(details.receipt.purchaseDate),
+                purchaseTime = details.receipt.purchaseTime.orEmpty(),
+                totalAmount = details.receipt.totalAmount.replace('.', ','),
+                currency = details.receipt.currency.orEmpty(),
+                vatNumber = details.receipt.vatNumber.orEmpty(),
+                documentNumber = details.receipt.documentNumber.orEmpty(),
+                paymentMethod = details.receipt.paymentMethod.orEmpty(),
+                products = details.products
+                    .sortedBy { it.position }
+                    .map { product ->
+                        ProductConfirmationDraft(
+                            name = product.name,
+                            quantity = product.quantity
+                                ?.replace('.', ',')
+                                .orEmpty(),
+                            unitPrice = product.unitPrice
+                                ?.replace('.', ',')
+                                .orEmpty(),
+                            lineTotal = product.lineTotal
+                                ?.replace('.', ',')
+                                .orEmpty(),
+                            requiresReview = false,
+                            sourceConfidence = product.sourceConfidence,
+                        )
+                    },
+                fieldsToReview = emptySet(),
             )
 
         fun from(
