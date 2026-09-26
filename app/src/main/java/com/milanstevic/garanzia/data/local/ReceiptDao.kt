@@ -36,6 +36,10 @@ abstract class ReceiptDao {
 
     @Transaction
     @Query("SELECT * FROM receipts ORDER BY confirmedAtEpochMs DESC")
+    abstract suspend fun getReceipts(): List<ReceiptWithDetails>
+
+    @Transaction
+    @Query("SELECT * FROM receipts ORDER BY confirmedAtEpochMs DESC")
     abstract fun observeReceipts(): Flow<List<ReceiptWithDetails>>
 
     @Query("SELECT COUNT(*) FROM receipts")
