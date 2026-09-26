@@ -110,7 +110,9 @@ fun MetricCard(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier,
+        modifier = modifier.animateContentSize(
+            animationSpec = tween(200, easing = FastOutSlowInEasing),
+        ),
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
     ) {
@@ -153,7 +155,9 @@ fun StatusPill(
         }
 
     Surface(
-        modifier = modifier,
+        modifier = modifier.animateContentSize(
+            animationSpec = tween(180, easing = FastOutSlowInEasing),
+        ),
         shape = RoundedCornerShape(999.dp),
         color = background,
     ) {
@@ -191,6 +195,9 @@ fun InfoStrip(
         text = text,
         modifier = modifier
             .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = tween(200, easing = FastOutSlowInEasing),
+            )
             .background(
                 color = tint.copy(alpha = 0.72f),
                 shape = RoundedCornerShape(16.dp),
