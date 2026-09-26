@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import com.milanstevic.garanzia.data.local.ReceiptWithDetails
 import com.milanstevic.garanzia.ui.components.GaranziaHeader
 import com.milanstevic.garanzia.ui.components.InfoStrip
+import com.milanstevic.garanzia.ui.components.PremiumBottomBar
+import com.milanstevic.garanzia.ui.components.PremiumDestination
 import com.milanstevic.garanzia.ui.components.SectionCard
 import com.milanstevic.garanzia.ui.components.StatusPill
 import java.math.BigDecimal
@@ -37,12 +39,21 @@ fun ReceiptArchiveScreen(
     filters: ArchiveFilterState,
     onFiltersChange: (ArchiveFilterState) -> Unit,
     onOpenReceipt: (String) -> Unit,
-    onBack: () -> Unit,
+    onOpenHome: () -> Unit,
+    onOpenStorage: () -> Unit,
 ) {
     val filtered = ReceiptArchiveFilter.apply(receipts, filters)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            PremiumBottomBar(
+                selected = PremiumDestination.ARCHIVE,
+                onHome = onOpenHome,
+                onArchive = {},
+                onStorage = onOpenStorage,
+            )
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -51,21 +62,11 @@ fun ReceiptArchiveScreen(
                 .padding(horizontal = 18.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                OutlinedButton(onClick = onBack) {
-                    Text("Indietro")
-                }
-
-                GaranziaHeader(
-                    eyebrow = "I tuoi documenti",
-                    title = "Archivio",
-                    subtitle = "Trova uno scontrino per negozio, prodotto o data.",
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            GaranziaHeader(
+                eyebrow = "I tuoi documenti",
+                title = "Archivio",
+                subtitle = "Trova uno scontrino per negozio, prodotto o data.",
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
