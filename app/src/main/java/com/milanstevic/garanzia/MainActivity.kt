@@ -29,6 +29,7 @@ import androidx.documentfile.provider.DocumentFile
 import com.milanstevic.garanzia.archive.ArchiveFilterState
 import com.milanstevic.garanzia.archive.ReceiptArchiveDetailScreen
 import com.milanstevic.garanzia.archive.ReceiptArchiveScreen
+import com.milanstevic.garanzia.archive.ReceiptLifecycleManager
 import com.milanstevic.garanzia.archive.ReceiptPdfManager
 import com.milanstevic.garanzia.archive.ReceiptPdfViewerScreen
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
@@ -86,6 +87,9 @@ class MainActivity : ComponentActivity() {
     lateinit var receiptPdfManager: ReceiptPdfManager
 
     @Inject
+    lateinit var receiptLifecycleManager: ReceiptLifecycleManager
+
+    @Inject
     lateinit var diagnosticsManager: DiagnosticsManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -102,6 +106,7 @@ class MainActivity : ComponentActivity() {
                     storageSettings = storageSettings,
                     receiptMirrorManager = receiptMirrorManager,
                     receiptPdfManager = receiptPdfManager,
+                    receiptLifecycleManager = receiptLifecycleManager,
                     diagnosticsManager = diagnosticsManager,
                 )
             }
@@ -132,6 +137,7 @@ private fun GaranziaApp(
     storageSettings: StorageSettings,
     receiptMirrorManager: ReceiptMirrorManager,
     receiptPdfManager: ReceiptPdfManager,
+    receiptLifecycleManager: ReceiptLifecycleManager,
     diagnosticsManager: DiagnosticsManager,
 ) {
     val scope = rememberCoroutineScope()
@@ -159,6 +165,9 @@ private fun GaranziaApp(
     var pdfError by remember { mutableStateOf<String?>(null) }
     var diagnosticsSnapshot by remember { mutableStateOf<DiagnosticsSnapshot?>(null) }
     var diagnosticsLoading by remember { mutableStateOf(false) }
+    var editingReceiptId by remember { mutableStateOf<String?>(null) }
+    var isDeletingReceipt by remember { mutableStateOf(false) }
+    var deleteReceiptError by remember { mutableStateOf<String?>(null) }
 
     var ocrStatus by remember { mutableStateOf("Preparazione OCR") }
     var ocrProgress by remember { mutableStateOf<Int?>(null) }
@@ -187,6 +196,7 @@ private fun GaranziaApp(
         ocrResult = null
         interpretation = null
         confirmationDraft = null
+        editingReceiptId = null
         currentOriginalUris = savedUris
         saveReceiptError = null
         ocrError = null
@@ -496,6 +506,7 @@ private fun GaranziaApp(
                     draft = draft,
                     isSaving = isSavingReceipt,
                     saveError = saveReceiptError,
+                    editing = editingReceiptId != null,
                     onDraftChange = {
                         confirmationDraft = it
                         saveReceiptError = null
@@ -506,34 +517,53 @@ private fun GaranziaApp(
                             saveReceiptError = null
                             scope.launch {
                                 try {
-                                    withContext(Dispatchers.IO) {
-                                        receiptRepository.saveConfirmedReceipt(
+                                    val editId = editingReceiptId
+
+                                    if (editId != null) {
+                                        val result = receiptLifecycleManager.updateReceipt(
+                                            receiptId = editId,
                                             draft = draft,
-                                            originalUris = currentOriginalUris,
-                                            rawOcrText = ocrResult?.rawText,
                                         )
-                                    }
 
-                                    BackgroundSyncScheduler.enqueueNow(activity)
+                                        BackgroundSyncScheduler.enqueueNow(activity)
+                                        storageMessage =
+                                            result.warning
+                                                ?: "Scontrino aggiornato. Copie esterne in aggiornamento."
 
-                                    storageMessage =
-                                        if (
-                                            storageState.phoneConfigured ||
-                                            storageState.driveConfigured
-                                        ) {
-                                            "Scontrino salvato. Sincronizzazione copie esterne in corso."
-                                        } else {
-                                            "Scontrino salvato nel database interno. Configura Archiviazione per le copie esterne."
+                                        editingReceiptId = null
+                                        confirmationDraft = null
+                                        selectedArchiveReceiptId = editId
+                                        screen = AppScreen.ARCHIVE_DETAIL
+                                    } else {
+                                        withContext(Dispatchers.IO) {
+                                            receiptRepository.saveConfirmedReceipt(
+                                                draft = draft,
+                                                originalUris = currentOriginalUris,
+                                                rawOcrText = ocrResult?.rawText,
+                                            )
                                         }
 
-                                    lastConfirmedProducts = draft.products.size
-                                    ocrResult = null
-                                    interpretation = null
-                                    confirmationDraft = null
-                                    currentOriginalUris = emptyList()
-                                    ocrError = null
-                                    ocrProgress = null
-                                    screen = AppScreen.HOME
+                                        BackgroundSyncScheduler.enqueueNow(activity)
+
+                                        storageMessage =
+                                            if (
+                                                storageState.phoneConfigured ||
+                                                storageState.driveConfigured
+                                            ) {
+                                                "Scontrino salvato. Sincronizzazione copie esterne in corso."
+                                            } else {
+                                                "Scontrino salvato nel database interno. Configura Archiviazione per le copie esterne."
+                                            }
+
+                                        lastConfirmedProducts = draft.products.size
+                                        ocrResult = null
+                                        interpretation = null
+                                        confirmationDraft = null
+                                        currentOriginalUris = emptyList()
+                                        ocrError = null
+                                        ocrProgress = null
+                                        screen = AppScreen.HOME
+                                    }
                                 } catch (t: Throwable) {
                                     saveReceiptError =
                                         t.message ?: "Impossibile salvare lo scontrino"
@@ -545,7 +575,13 @@ private fun GaranziaApp(
                     },
                     onBack = {
                         saveReceiptError = null
-                        screen = AppScreen.OCR
+                        if (editingReceiptId != null) {
+                            editingReceiptId = null
+                            confirmationDraft = null
+                            screen = AppScreen.ARCHIVE_DETAIL
+                        } else {
+                            screen = AppScreen.OCR
+                        }
                     },
                 )
             }
@@ -557,6 +593,7 @@ private fun GaranziaApp(
             onFiltersChange = { archiveFilters = it },
             onOpenReceipt = { receiptId ->
                 selectedArchiveReceiptId = receiptId
+                deleteReceiptError = null
                 screen = AppScreen.ARCHIVE_DETAIL
             },
             onOpenHome = {
@@ -580,7 +617,42 @@ private fun GaranziaApp(
                     onOpenPdf = {
                         openReceiptPdf(details.receipt.id)
                     },
+                    onEdit = {
+                        editingReceiptId = details.receipt.id
+                        confirmationDraft = ReceiptConfirmationDraft.fromStored(details)
+                        saveReceiptError = null
+                        screen = AppScreen.CONFIRM
+                    },
+                    onDelete = {
+                        if (!isDeletingReceipt) {
+                            isDeletingReceipt = true
+                            deleteReceiptError = null
+
+                            scope.launch {
+                                try {
+                                    val result = receiptLifecycleManager.deleteReceipt(
+                                        details.receipt.id,
+                                    )
+
+                                    BackgroundSyncScheduler.enqueueNow(activity)
+                                    storageMessage =
+                                        result.warning
+                                            ?: "Scontrino eliminato e copie ripulite."
+                                    selectedArchiveReceiptId = null
+                                    screen = AppScreen.ARCHIVE
+                                } catch (t: Throwable) {
+                                    deleteReceiptError =
+                                        t.message ?: "Impossibile eliminare lo scontrino"
+                                } finally {
+                                    isDeletingReceipt = false
+                                }
+                            }
+                        }
+                    },
+                    isDeleting = isDeletingReceipt,
+                    deleteError = deleteReceiptError,
                     onBack = {
+                        deleteReceiptError = null
                         selectedArchiveReceiptId = null
                         screen = AppScreen.ARCHIVE
                     },
