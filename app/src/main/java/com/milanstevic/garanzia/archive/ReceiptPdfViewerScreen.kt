@@ -59,8 +59,16 @@ fun ReceiptPdfViewerScreen(
 
     DisposableEffect(pdfFile) {
         onDispose {
-            pageBitmap?.recycle()
             session?.close()
+        }
+    }
+
+    DisposableEffect(pageBitmap) {
+        val bitmap = pageBitmap
+        onDispose {
+            if (bitmap != null && !bitmap.isRecycled) {
+                bitmap.recycle()
+            }
         }
     }
 
