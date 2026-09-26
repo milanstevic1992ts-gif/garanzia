@@ -29,6 +29,7 @@ fun ReceiptConfirmationScreen(
     draft: ReceiptConfirmationDraft,
     isSaving: Boolean,
     saveError: String?,
+    editing: Boolean = false,
     onDraftChange: (ReceiptConfirmationDraft) -> Unit,
     onConfirm: () -> Unit,
     onBack: () -> Unit,
@@ -44,9 +45,14 @@ fun ReceiptConfirmationScreen(
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             GaranziaHeader(
-                eyebrow = "Ultimo controllo",
-                title = "Conferma scontrino",
-                subtitle = "Correggi solo ciò che serve, poi salva nell'archivio.",
+                eyebrow = if (editing) "Modifica archivio" else "Ultimo controllo",
+                title = if (editing) "Modifica scontrino" else "Conferma scontrino",
+                subtitle =
+                    if (editing) {
+                        "Aggiorna i dati e salva le modifiche sullo stesso scontrino."
+                    } else {
+                        "Correggi solo ciò che serve, poi salva nell'archivio."
+                    },
             )
 
             when {
@@ -330,7 +336,13 @@ fun ReceiptConfirmationScreen(
                     enabled = draft.canConfirm && !isSaving,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text(if (isSaving) "Salvataggio…" else "Conferma e salva")
+                    Text(
+                        when {
+                            isSaving -> "Salvataggio…"
+                            editing -> "Salva modifiche"
+                            else -> "Conferma e salva"
+                        },
+                    )
                 }
             }
 
