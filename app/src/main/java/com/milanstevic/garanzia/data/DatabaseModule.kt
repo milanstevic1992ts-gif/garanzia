@@ -2,6 +2,7 @@ package com.milanstevic.garanzia.data
 
 import android.content.Context
 import androidx.room.Room
+import com.milanstevic.garanzia.data.local.DatabaseMigrations
 import com.milanstevic.garanzia.data.local.GaranziaDatabase
 import com.milanstevic.garanzia.data.local.ReceiptDao
 import dagger.Module
@@ -24,7 +25,9 @@ object DatabaseModule {
             context,
             GaranziaDatabase::class.java,
             "garanzia.db",
-        ).build()
+        )
+            .addMigrations(*DatabaseMigrations.ALL)
+            .build()
 
     @Provides
     fun provideReceiptDao(
