@@ -8,15 +8,20 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -43,11 +48,13 @@ fun FallbackCameraScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
     val previewView = remember {
         PreviewView(context).apply {
             scaleType = PreviewView.ScaleType.FILL_CENTER
         }
     }
+
     val imageCapture = remember {
         ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
@@ -64,6 +71,7 @@ fun FallbackCameraScreen(
                 val preview = Preview.Builder().build().also {
                     it.surfaceProvider = previewView.surfaceProvider
                 }
+
                 provider.unbindAll()
                 provider.bindToLifecycle(
                     lifecycleOwner,
@@ -71,12 +79,16 @@ fun FallbackCameraScreen(
                     preview,
                     imageCapture,
                 )
-            }.onFailure { errorMessage = "Fotocamera non disponibile" }
+            }.onFailure {
+                errorMessage = "Fotocamera non disponibile"
+            }
         }, executor)
 
         onDispose {
             if (providerFuture.isDone) {
-                runCatching { providerFuture.get().unbindAll() }
+                runCatching {
+                    providerFuture.get().unbindAll()
+                }
             }
         }
     }
@@ -91,62 +103,109 @@ fun FallbackCameraScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
-        Text(
-            text = "Inquadra tutto lo scontrino",
-            color = Color.White,
-            style = MaterialTheme.typography.titleMedium,
+        Surface(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(24.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            shape = RoundedCornerShape(22.dp),
+            color = Color.Black.copy(alpha = 0.62f),
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = "Inquadra lo scontrino",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = "Tieni visibili tutti i bordi e cerca di evitare riflessi.",
+                    color = Color.White.copy(alpha = 0.78f),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 28.dp, vertical = 120.dp)
+                .fillMaxSize()
+                .sizeIn(maxWidth = 520.dp, maxHeight = 720.dp)
+                .border(
+                    width = 2.dp,
+                    color = Color.White.copy(alpha = 0.8f),
+                    shape = RoundedCornerShape(24.dp),
+                ),
         )
 
         errorMessage?.let { message ->
-            Text(
-                text = message,
-                color = Color.White,
+            Surface(
                 modifier = Modifier
                     .align(Alignment.Center)
                     .padding(24.dp),
-            )
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.errorContainer,
+            ) {
+                Text(
+                    text = message,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(16.dp),
+                )
+            }
         }
 
-        Row(
+        Surface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .fillMaxWidth(),
+            color = Color.Black.copy(alpha = 0.72f),
         ) {
-            OutlinedButton(
-                modifier = Modifier.weight(1f),
-                onClick = onCancel,
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 18.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("Annulla")
-            }
+                OutlinedButton(
+                    modifier = Modifier.weight(1f),
+                    onClick = onCancel,
+                ) {
+                    Text("Annulla")
+                }
 
-            Button(
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    outputFile.parentFile?.mkdirs()
-                    val options = ImageCapture.OutputFileOptions.Builder(outputFile).build()
-                    imageCapture.takePicture(
-                        options,
-                        ContextCompat.getMainExecutor(context),
-                        object : ImageCapture.OnImageSavedCallback {
-                            override fun onImageSaved(
-                                outputFileResults: ImageCapture.OutputFileResults,
-                            ) {
-                                onCaptured(Uri.fromFile(outputFile))
-                            }
+                Button(
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        outputFile.parentFile?.mkdirs()
+                        val options =
+                            ImageCapture.OutputFileOptions
+                                .Builder(outputFile)
+                                .build()
 
-                            override fun onError(exception: ImageCaptureException) {
-                                errorMessage = "Impossibile salvare la foto"
-                            }
-                        },
-                    )
-                },
-            ) {
-                Text("Scatta")
+                        imageCapture.takePicture(
+                            options,
+                            ContextCompat.getMainExecutor(context),
+                            object : ImageCapture.OnImageSavedCallback {
+                                override fun onImageSaved(
+                                    outputFileResults: ImageCapture.OutputFileResults,
+                                ) {
+                                    onCaptured(Uri.fromFile(outputFile))
+                                }
+
+                                override fun onError(
+                                    exception: ImageCaptureException,
+                                ) {
+                                    errorMessage =
+                                        "Impossibile salvare la foto"
+                                }
+                            },
+                        )
+                    },
+                ) {
+                    Text("Scatta")
+                }
             }
         }
     }
