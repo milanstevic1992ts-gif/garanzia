@@ -2,15 +2,26 @@ package com.milanstevic.garanzia.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.milanstevic.garanzia.ui.components.GaranziaHeader
+import com.milanstevic.garanzia.ui.components.InfoStrip
+import com.milanstevic.garanzia.ui.components.MetricCard
+import com.milanstevic.garanzia.ui.components.SectionCard
+import com.milanstevic.garanzia.ui.components.StatusPill
 
 @Composable
 fun HomeScreen(
@@ -23,67 +34,110 @@ fun HomeScreen(
     dualCopyConfigured: Boolean,
     storageMessage: String?,
 ) {
-    Scaffold { innerPadding ->
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 22.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Text(
-                text = "Garanzia",
-                style = MaterialTheme.typography.headlineLarge,
+            GaranziaHeader(
+                eyebrow = "Archivio personale",
+                title = "Garanzia",
+                subtitle = "Scansiona, conserva e ritrova ogni scontrino senza perderlo.",
             )
-            Text(
-                text = "Archivio scontrini e garanzie",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Text(
-                text = "Scansiona uno scontrino. Il documento originale resta sul telefono.",
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Text(
-                text = "Scontrini salvati: $savedReceiptCount",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Button(onClick = onScanReceipt) {
-                Text("Scansiona scontrino")
-            }
-            Button(onClick = onOpenArchive) {
-                Text("Apri archivio")
-            }
-            Button(onClick = onOpenStorage) {
-                Text("Archiviazione")
-            }
-            Text(
-                text =
-                    if (dualCopyConfigured) {
-                        "Doppia copia: attiva"
-                    } else {
-                        "Doppia copia: da configurare"
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            storageMessage?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                MetricCard(
+                    label = "Scontrini salvati",
+                    value = savedReceiptCount.toString(),
+                    modifier = Modifier.weight(1f),
                 )
-            }
-            if (lastSavedPages > 0) {
-                Text(
-                    text = "Ultima acquisizione conservata: $lastSavedPages pagina/e.",
-                    style = MaterialTheme.typography.bodyMedium,
+                MetricCard(
+                    label = "Ultima scansione",
+                    value =
+                        if (lastSavedPages > 0) {
+                            "$lastSavedPages pag."
+                        } else {
+                            "—"
+                        },
+                    modifier = Modifier.weight(1f),
                 )
             }
 
+            SectionCard(
+                title = "Nuovo scontrino",
+                subtitle = "Fotografa o importa lo scontrino. L'originale resta conservato.",
+            ) {
+                Button(
+                    onClick = onScanReceipt,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Scansiona scontrino")
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                FilledTonalButton(
+                    onClick = onOpenArchive,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Archivio")
+                }
+
+                OutlinedButton(
+                    onClick = onOpenStorage,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Archiviazione")
+                }
+            }
+
+            SectionCard(
+                title = "Sicurezza copie",
+                subtitle = "Mantieni una copia sul telefono e una seconda su Google Drive.",
+            ) {
+                StatusPill(
+                    text =
+                        if (dualCopyConfigured) {
+                            "Doppia copia attiva"
+                        } else {
+                            "Da configurare"
+                        },
+                    positive = dualCopyConfigured,
+                )
+
+                storageMessage?.let {
+                    InfoStrip(
+                        text = it,
+                        positive = !it.contains("erro", ignoreCase = true) &&
+                            !it.contains("riprov", ignoreCase = true),
+                    )
+                }
+            }
+
             lastConfirmedProducts?.let { productCount ->
-                Text(
-                    text = "Ultimo scontrino confermato in questa sessione: $productCount prodotto/i.",
-                    style = MaterialTheme.typography.bodyMedium,
+                InfoStrip(
+                    text = "Ultimo scontrino confermato: $productCount prodotto/i riconosciuti.",
+                    positive = true,
                 )
             }
+
+            Text(
+                text = "I tuoi documenti restano disponibili anche senza connessione.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
