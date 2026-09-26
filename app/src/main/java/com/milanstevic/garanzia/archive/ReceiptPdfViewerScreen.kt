@@ -28,9 +28,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import com.milanstevic.garanzia.ui.components.GaranziaHeader
+import com.milanstevic.garanzia.ui.components.InfoStrip
+import com.milanstevic.garanzia.ui.components.SectionCard
+import com.milanstevic.garanzia.ui.components.StatusPill
 import java.io.Closeable
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -98,59 +103,72 @@ fun ReceiptPdfViewerScreen(
     val currentSession = session
     val combinedError = error ?: viewerError
 
-    Scaffold { innerPadding ->
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 OutlinedButton(onClick = onBack) {
                     Text("Indietro")
                 }
 
-                Text(
-                    text = "PDF scontrino",
-                    style = MaterialTheme.typography.headlineSmall,
+                GaranziaHeader(
+                    eyebrow = "Documento originale",
+                    title = "PDF scontrino",
+                    subtitle = "Lettore interno, senza aprire app esterne.",
                     modifier = Modifier.weight(1f),
                 )
             }
 
             when {
                 loading -> {
-                    CircularProgressIndicator()
-                    Text("Preparazione PDF…")
+                    SectionCard(
+                        title = "Preparazione documento",
+                        subtitle = "Sto creando il PDF dalle immagini originali.",
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
 
                 combinedError != null -> {
-                    Text(
-                        text = combinedError,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-
-                    Button(
-                        onClick = onRetry,
-                        modifier = Modifier.fillMaxWidth(),
+                    SectionCard(
+                        title = "PDF non disponibile",
+                        subtitle = "Il documento non è stato perso: puoi riprovare.",
                     ) {
-                        Text("Riprova")
+                        InfoStrip(
+                            text = combinedError,
+                            positive = false,
+                        )
+                        Button(
+                            onClick = onRetry,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("Riprova")
+                        }
                     }
                 }
 
                 currentSession == null -> {
-                    CircularProgressIndicator()
-                    Text("Apertura PDF…")
+                    SectionCard(
+                        title = "Apertura PDF",
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
 
                 else -> {
-                    Text(
+                    StatusPill(
                         text = "Pagina ${pageIndex + 1} di ${currentSession.pageCount}",
-                        style = MaterialTheme.typography.titleMedium,
+                        positive = true,
                     )
 
                     if (pageLoading) {
@@ -162,14 +180,17 @@ fun ReceiptPdfViewerScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxWidth()
-                                .verticalScroll(rememberScrollState())
+                                .clip(MaterialTheme.shapes.large)
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(8.dp),
+                                .verticalScroll(rememberScrollState())
+                                .padding(10.dp),
                         ) {
                             Image(
                                 bitmap = bitmap.asImageBitmap(),
                                 contentDescription = "Pagina PDF ${pageIndex + 1}",
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(MaterialTheme.shapes.medium),
                                 contentScale = ContentScale.FillWidth,
                             )
                         }
@@ -177,7 +198,7 @@ fun ReceiptPdfViewerScreen(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         OutlinedButton(
                             onClick = {
@@ -186,7 +207,7 @@ fun ReceiptPdfViewerScreen(
                             enabled = pageIndex > 0 && !pageLoading,
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("Pagina prima")
+                            Text("Precedente")
                         }
 
                         Button(
@@ -200,7 +221,7 @@ fun ReceiptPdfViewerScreen(
                                     !pageLoading,
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text("Pagina dopo")
+                            Text("Successiva")
                         }
                     }
                 }
