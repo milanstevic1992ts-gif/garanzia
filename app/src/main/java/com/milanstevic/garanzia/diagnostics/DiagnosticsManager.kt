@@ -6,6 +6,7 @@ import android.os.StatFs
 import androidx.documentfile.provider.DocumentFile
 import com.milanstevic.garanzia.data.ReceiptRepository
 import com.milanstevic.garanzia.ocr.PaddleModelRepository
+import com.milanstevic.garanzia.storage.PendingMirrorDeletionStore
 import com.milanstevic.garanzia.storage.StorageSettings
 import com.milanstevic.garanzia.storage.StorageTargetState
 import com.milanstevic.garanzia.storage.SyncStatusStore
@@ -47,6 +48,7 @@ class DiagnosticsManager @Inject constructor(
     private val repository: ReceiptRepository,
     private val storageSettings: StorageSettings,
     private val syncStatusStore: SyncStatusStore,
+    private val pendingDeletions: PendingMirrorDeletionStore,
 ) {
     suspend fun runChecks(): DiagnosticsSnapshot = withContext(Dispatchers.IO) {
         val items = mutableListOf<DiagnosticItem>()
@@ -149,6 +151,23 @@ class DiagnosticsManager @Inject constructor(
                 freeBytes >= MIN_FREE_BYTES -> DiagnosticLevel.WARNING
                 else -> DiagnosticLevel.ERROR
             },
+        )
+
+        val pendingDeleteCount = pendingDeletions.all().size
+        items += DiagnosticItem(
+            title = "Pulizia copie esterne",
+            detail =
+                if (pendingDeleteCount == 0) {
+                    "Nessuna cancellazione esterna in attesa"
+                } else {
+                    "$pendingDeleteCount cancellazione/i da riprovare"
+                },
+            level =
+                if (pendingDeleteCount == 0) {
+                    DiagnosticLevel.OK
+                } else {
+                    DiagnosticLevel.WARNING
+                },
         )
 
         val sync = syncStatusStore.state.value
