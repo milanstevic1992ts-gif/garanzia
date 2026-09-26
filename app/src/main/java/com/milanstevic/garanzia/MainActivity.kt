@@ -33,6 +33,7 @@ import com.milanstevic.garanzia.archive.ReceiptPdfManager
 import com.milanstevic.garanzia.archive.ReceiptPdfViewerScreen
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationScreen
+import com.milanstevic.garanzia.data.ReceiptArchiveState
 import com.milanstevic.garanzia.data.ReceiptRepository
 import com.milanstevic.garanzia.intelligence.ReceiptInterpretation
 import com.milanstevic.garanzia.intelligence.ReceiptInterpreter
@@ -129,10 +130,15 @@ private fun GaranziaApp(
     var lastSavedPages by remember { mutableIntStateOf(0) }
     val stagedUris = remember { mutableStateListOf<Uri>() }
     var currentOriginalUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    val receiptCountFlow = remember(receiptRepository) { receiptRepository.observeReceiptCount() }
-    val savedReceiptCount by receiptCountFlow.collectAsState(initial = 0)
-    val archiveReceiptsFlow = remember(receiptRepository) { receiptRepository.observeReceipts() }
-    val archiveReceipts by archiveReceiptsFlow.collectAsState(initial = emptyList())
+    val archiveStateFlow = remember(receiptRepository) {
+        receiptRepository.observeArchiveState()
+    }
+    val archiveState by archiveStateFlow.collectAsState(
+        initial = ReceiptArchiveState(),
+    )
+    val archiveReceipts = archiveState.receipts
+    val savedReceiptCount = archiveReceipts.size
+    val databaseError = archiveState.error
     var selectedArchiveReceiptId by remember { mutableStateOf<String?>(null) }
     var archiveFilters by remember { mutableStateOf(ArchiveFilterState()) }
     val storageState by storageSettings.state.collectAsState()
@@ -382,6 +388,7 @@ private fun GaranziaApp(
             savedReceiptCount = savedReceiptCount,
             dualCopyConfigured = storageState.bothConfigured,
             storageMessage = storageMessage,
+            databaseError = databaseError,
         )
 
         AppScreen.CAMERA -> {
@@ -531,6 +538,7 @@ private fun GaranziaApp(
             onOpenStorage = {
                 screen = AppScreen.STORAGE
             },
+            databaseError = databaseError,
         )
 
         AppScreen.ARCHIVE_DETAIL -> {
@@ -564,6 +572,7 @@ private fun GaranziaApp(
                     onOpenStorage = {
                         screen = AppScreen.STORAGE
                     },
+                    databaseError = databaseError,
                 )
             }
         }
