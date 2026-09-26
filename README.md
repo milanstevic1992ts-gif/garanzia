@@ -113,3 +113,17 @@ Fase 9 — archivio garanzie integrato sopra Room (controllo statico completato;
 14. Sicurezza
 15. Banco prova OCR italiano
 16. Build release e APK firmata
+
+
+## Restyling UI
+
+- design system Garanzia con palette light/dark dedicata
+- superfici e card arrotondate con gerarchia visiva coerente
+- Home ridisegnata con metriche, azione principale e stato backup
+- Archivio ridisegnato con filtri raccolti in una card e card scontrino più leggibili
+- dettaglio scontrino organizzato in riepilogo, prodotti, PDF e OCR
+- conferma scontrino semplificata con evidenza chiara degli elementi da verificare
+- risultato OCR organizzato per dati riconosciuti, prodotti e testo originale
+- archiviazione telefono/Drive con stato visivo e sincronizzazione più chiara
+- lettore PDF integrato ridisegnato
+- revisione scansione e fotocamera fallback rifinite graficamente
