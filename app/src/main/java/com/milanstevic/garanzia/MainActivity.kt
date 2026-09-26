@@ -44,6 +44,8 @@ import com.milanstevic.garanzia.intelligence.ReceiptInterpreter
 import com.milanstevic.garanzia.ocr.OcrReceiptResult
 import com.milanstevic.garanzia.ocr.OcrResultScreen
 import com.milanstevic.garanzia.ocr.ReceiptOcrEngine
+import com.milanstevic.garanzia.product.ProductDetailMapper
+import com.milanstevic.garanzia.product.ProductDetailScreen
 import com.milanstevic.garanzia.scanner.DocumentScannerManager
 import com.milanstevic.garanzia.scanner.FallbackCameraScreen
 import com.milanstevic.garanzia.scanner.ReceiptFileStore
@@ -123,6 +125,7 @@ private enum class AppScreen {
     CONFIRM,
     ARCHIVE,
     ARCHIVE_DETAIL,
+    PRODUCT_DETAIL,
     PDF_VIEWER,
     STORAGE,
     DIAGNOSTICS,
@@ -157,6 +160,7 @@ private fun GaranziaApp(
     val savedReceiptCount = archiveReceipts.size
     val databaseError = archiveState.error
     var selectedArchiveReceiptId by remember { mutableStateOf<String?>(null) }
+    var selectedProductId by remember { mutableStateOf<Long?>(null) }
     var archiveFilters by remember { mutableStateOf(ArchiveFilterState()) }
     var archiveSearchIds by remember { mutableStateOf<Set<String>?>(null) }
     val storageState by storageSettings.state.collectAsState()
@@ -165,6 +169,7 @@ private fun GaranziaApp(
     var pdfFile by remember { mutableStateOf<File?>(null) }
     var pdfLoading by remember { mutableStateOf(false) }
     var pdfError by remember { mutableStateOf<String?>(null) }
+    var pdfReturnScreen by remember { mutableStateOf(AppScreen.ARCHIVE_DETAIL) }
     var diagnosticsSnapshot by remember { mutableStateOf<DiagnosticsSnapshot?>(null) }
     var diagnosticsLoading by remember { mutableStateOf(false) }
     var editingReceiptId by remember { mutableStateOf<String?>(null) }
@@ -227,8 +232,12 @@ private fun GaranziaApp(
     }
 
 
-    fun openReceiptPdf(receiptId: String) {
+    fun openReceiptPdf(
+        receiptId: String,
+        returnScreen: AppScreen = AppScreen.ARCHIVE_DETAIL,
+    ) {
         selectedArchiveReceiptId = receiptId
+        pdfReturnScreen = returnScreen
         pdfFile = null
         pdfError = null
         pdfLoading = true
@@ -619,6 +628,7 @@ private fun GaranziaApp(
             onFiltersChange = { archiveFilters = it },
             onOpenReceipt = { receiptId ->
                 selectedArchiveReceiptId = receiptId
+                selectedProductId = null
                 deleteReceiptError = null
                 screen = AppScreen.ARCHIVE_DETAIL
             },
@@ -641,7 +651,14 @@ private fun GaranziaApp(
                 ReceiptArchiveDetailScreen(
                     details = details,
                     onOpenPdf = {
-                        openReceiptPdf(details.receipt.id)
+                        openReceiptPdf(
+                            receiptId = details.receipt.id,
+                            returnScreen = AppScreen.ARCHIVE_DETAIL,
+                        )
+                    },
+                    onOpenProduct = { productId ->
+                        selectedProductId = productId
+                        screen = AppScreen.PRODUCT_DETAIL
                     },
                     onEdit = {
                         editingReceiptId = details.receipt.id
@@ -665,6 +682,7 @@ private fun GaranziaApp(
                                         result.warning
                                             ?: "Scontrino eliminato e copie ripulite."
                                     selectedArchiveReceiptId = null
+                                    selectedProductId = null
                                     screen = AppScreen.ARCHIVE
                                 } catch (t: Throwable) {
                                     deleteReceiptError =
@@ -680,6 +698,7 @@ private fun GaranziaApp(
                     onBack = {
                         deleteReceiptError = null
                         selectedArchiveReceiptId = null
+                        selectedProductId = null
                         screen = AppScreen.ARCHIVE
                     },
                 )
@@ -704,22 +723,73 @@ private fun GaranziaApp(
             }
         }
 
+        AppScreen.PRODUCT_DETAIL -> {
+            val details = archiveReceipts.firstOrNull {
+                it.receipt.id == selectedArchiveReceiptId
+            }
+            val product = details
+                ?.let { receipt ->
+                    selectedProductId?.let { productId ->
+                        ProductDetailMapper.from(
+                            details = receipt,
+                            productId = productId,
+                        )
+                    }
+                }
+
+            if (details != null && product != null) {
+                ProductDetailScreen(
+                    product = product,
+                    onOpenReceiptPdf = {
+                        openReceiptPdf(
+                            receiptId = details.receipt.id,
+                            returnScreen = AppScreen.PRODUCT_DETAIL,
+                        )
+                    },
+                    onEditReceipt = {
+                        selectedProductId = null
+                        editingReceiptId = details.receipt.id
+                        confirmationDraft = ReceiptConfirmationDraft.fromStored(details)
+                        saveReceiptError = null
+                        screen = AppScreen.CONFIRM
+                    },
+                    onBack = {
+                        selectedProductId = null
+                        screen = AppScreen.ARCHIVE_DETAIL
+                    },
+                )
+            } else {
+                LaunchedEffect(
+                    selectedArchiveReceiptId,
+                    selectedProductId,
+                ) {
+                    selectedProductId = null
+                    screen =
+                        if (selectedArchiveReceiptId != null) {
+                            AppScreen.ARCHIVE_DETAIL
+                        } else {
+                            AppScreen.ARCHIVE
+                        }
+                }
+            }
+        }
+
         AppScreen.PDF_VIEWER -> ReceiptPdfViewerScreen(
             pdfFile = pdfFile,
             loading = pdfLoading,
             error = pdfError,
             onRetry = {
-                selectedArchiveReceiptId?.let(::openReceiptPdf)
+                selectedArchiveReceiptId?.let { receiptId ->
+                    openReceiptPdf(
+                        receiptId = receiptId,
+                        returnScreen = pdfReturnScreen,
+                    )
+                }
             },
             onBack = {
                 pdfError = null
                 pdfLoading = false
-                screen =
-                    if (selectedArchiveReceiptId != null) {
-                        AppScreen.ARCHIVE_DETAIL
-                    } else {
-                        AppScreen.ARCHIVE
-                    }
+                screen = pdfReturnScreen
             },
         )
 
