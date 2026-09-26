@@ -40,6 +40,7 @@ class ReceiptMirrorManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settings: StorageSettings,
 ) {
+    @Synchronized
     fun mirrorReceipt(details: ReceiptWithDetails): ReceiptMirrorResult {
         val state = settings.state.value
 
@@ -57,6 +58,7 @@ class ReceiptMirrorManager @Inject constructor(
         )
     }
 
+    @Synchronized
     fun mirrorArchive(receipts: List<ReceiptWithDetails>): ArchiveMirrorSummary {
         var successes = 0
         var failures = 0
