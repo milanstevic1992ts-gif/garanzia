@@ -101,6 +101,65 @@ class ReceiptRepository @Inject constructor(
         return receiptId
     }
 
+    suspend fun updateConfirmedReceipt(
+        receiptId: String,
+        draft: ReceiptConfirmationDraft,
+    ) {
+        require(draft.canConfirm) { "Receipt confirmation is not valid" }
+
+        val existing = requireNotNull(receiptDao.getReceipt(receiptId)) {
+            "Scontrino non trovato"
+        }
+
+        val purchaseDate = LocalDate
+            .parse(draft.purchaseDate.trim(), DATE_FORMAT)
+            .toString()
+
+        val updatedReceipt = existing.receipt.copy(
+            merchant = draft.merchant.trim(),
+            purchaseDate = purchaseDate,
+            purchaseTime = draft.purchaseTime.trim().ifBlank { null },
+            totalAmount = requireNotNull(
+                ReceiptConfirmationDraft.parseMoney(draft.totalAmount),
+            ).toPlainString(),
+            currency = draft.currency.trim().uppercase().ifBlank { null },
+            vatNumber = draft.vatNumber.trim().ifBlank { null },
+            documentNumber = draft.documentNumber.trim().ifBlank { null },
+            paymentMethod = draft.paymentMethod.trim().ifBlank { null },
+        )
+
+        val products = draft.products.mapIndexed { index, product ->
+            ReceiptProductEntity(
+                receiptId = receiptId,
+                position = index,
+                name = product.name.trim(),
+                quantity = product.quantity
+                    .takeIf(String::isNotBlank)
+                    ?.let(ReceiptConfirmationDraft::parseQuantity)
+                    ?.stripTrailingZeros()
+                    ?.toPlainString(),
+                unitPrice = product.unitPrice
+                    .takeIf(String::isNotBlank)
+                    ?.let(ReceiptConfirmationDraft::parseMoney)
+                    ?.toPlainString(),
+                lineTotal = product.lineTotal
+                    .takeIf(String::isNotBlank)
+                    ?.let(ReceiptConfirmationDraft::parseMoney)
+                    ?.toPlainString(),
+                sourceConfidence = product.sourceConfidence,
+            )
+        }
+
+        receiptDao.updateReceiptGraph(
+            receipt = updatedReceipt,
+            products = products,
+        )
+
+        checkNotNull(receiptDao.getReceipt(receiptId)) {
+            "Lo scontrino non risulta presente dopo la modifica"
+        }
+    }
+
     fun observeArchiveState(): Flow<ReceiptArchiveState> =
         flow {
             while (true) {
