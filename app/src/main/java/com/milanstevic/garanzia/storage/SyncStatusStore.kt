@@ -36,6 +36,18 @@ class SyncStatusStore @Inject constructor(
         _state.value = load()
     }
 
+    fun markSkipped(message: String) {
+        val now = System.currentTimeMillis()
+        preferences.edit()
+            .putLong(KEY_LAST_ATTEMPT, now)
+            .putInt(KEY_SUCCESSFUL_COPIES, 0)
+            .putInt(KEY_FAILED_COPIES, 0)
+            .putString(KEY_LAST_MESSAGE, message)
+            .putBoolean(KEY_RUNNING, false)
+            .apply()
+        _state.value = load()
+    }
+
     fun markResult(
         successfulCopies: Int,
         failedCopies: Int,
