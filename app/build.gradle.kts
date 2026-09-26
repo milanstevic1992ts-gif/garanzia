@@ -73,6 +73,7 @@ dependencies {
     implementation("androidx.camera:camera-view:1.6.1")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.documentfile:documentfile:1.1.0")
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.room:room-testing:2.8.5")
