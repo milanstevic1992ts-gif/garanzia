@@ -96,6 +96,23 @@ class ReceiptFileStore @Inject constructor(
         }
     }
 
+    fun deleteOriginals(originalUris: List<Uri>): Int {
+        var failures = 0
+
+        originalUris.forEach { uri ->
+            val file = uri.path?.let(::File)
+            if (
+                file == null ||
+                file.parentFile != originalsDir ||
+                (file.exists() && !file.delete())
+            ) {
+                failures++
+            }
+        }
+
+        return failures
+    }
+
     fun discardStaged(stagedUris: List<Uri>) {
         stagedUris.forEach { uri ->
             uri.path
