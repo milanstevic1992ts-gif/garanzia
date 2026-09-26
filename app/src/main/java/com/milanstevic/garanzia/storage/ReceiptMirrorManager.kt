@@ -3,6 +3,7 @@ package com.milanstevic.garanzia.storage
 import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
+import com.milanstevic.garanzia.archive.ReceiptPdfManager
 import com.milanstevic.garanzia.data.local.ReceiptWithDetails
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -40,6 +41,7 @@ class ReceiptMirrorManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settings: StorageSettings,
     private val pendingDeletions: PendingMirrorDeletionStore,
+    private val pdfManager: ReceiptPdfManager,
 ) {
     @Synchronized
     fun mirrorReceipt(details: ReceiptWithDetails): ReceiptMirrorResult {
@@ -210,6 +212,7 @@ class ReceiptMirrorManager @Inject constructor(
             val complete =
                 receiptDirectory.findFile(COMPLETE_FILE)?.isFile == true &&
                     receiptDirectory.findFile(SUMMARY_FILE)?.isFile == true &&
+                    receiptDirectory.findFile(PDF_FILE)?.isFile == true &&
                     expectedPages.all { (_, fileName) ->
                         receiptDirectory.findFile(fileName)?.isFile == true
                     } &&
@@ -245,6 +248,14 @@ class ReceiptMirrorManager @Inject constructor(
                             text = rawOcr,
                         )
                     }
+
+                val pdfFile = pdfManager.createOrReplacePdfBlocking(details)
+                copyFileIntoDirectory(
+                    sourceFile = pdfFile,
+                    directory = receiptDirectory,
+                    displayName = PDF_FILE,
+                    mimeType = "application/pdf",
+                )
 
                 writeTextFile(
                     directory = receiptDirectory,
@@ -284,6 +295,39 @@ class ReceiptMirrorManager @Inject constructor(
 
         try {
             val copiedBytes = openSource(sourceUri).use { input ->
+                context.contentResolver.openOutputStream(target.uri, "w").use { output ->
+                    requireNotNull(output) { "Impossibile scrivere $displayName" }
+                    val copied = input.copyTo(output)
+                    output.flush()
+                    copied
+                }
+            }
+
+            require(copiedBytes > 0L) {
+                "$displayName non contiene dati"
+            }
+        } catch (t: Throwable) {
+            target.delete()
+            throw t
+        }
+    }
+
+    private fun copyFileIntoDirectory(
+        sourceFile: File,
+        directory: DocumentFile,
+        displayName: String,
+        mimeType: String,
+    ) {
+        require(sourceFile.isFile && sourceFile.length() > 0L) {
+            "PDF locale non disponibile"
+        }
+
+        val target = requireNotNull(directory.createFile(mimeType, displayName)) {
+            "Impossibile creare $displayName"
+        }
+
+        try {
+            val copiedBytes = sourceFile.inputStream().use { input ->
                 context.contentResolver.openOutputStream(target.uri, "w").use { output ->
                     requireNotNull(output) { "Impossibile scrivere $displayName" }
                     val copied = input.copyTo(output)
@@ -343,6 +387,7 @@ class ReceiptMirrorManager @Inject constructor(
                 name.startsWith(PAGE_PREFIX) ||
                 name == SUMMARY_FILE ||
                 name == OCR_FILE ||
+                name == PDF_FILE ||
                 name == COMPLETE_FILE
             ) {
                 file.delete()
@@ -407,6 +452,7 @@ class ReceiptMirrorManager @Inject constructor(
         const val PAGE_PREFIX = "pagina_"
         const val SUMMARY_FILE = "dati_scontrino.txt"
         const val OCR_FILE = "ocr_originale.txt"
+        const val PDF_FILE = "scontrino.pdf"
         const val COMPLETE_FILE = "sincronizzazione_completa.txt"
     }
 }
