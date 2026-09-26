@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import com.milanstevic.garanzia.ui.components.GaranziaHeader
 import com.milanstevic.garanzia.ui.components.InfoStrip
 import com.milanstevic.garanzia.ui.components.MetricCard
+import com.milanstevic.garanzia.ui.components.PremiumBottomBar
+import com.milanstevic.garanzia.ui.components.PremiumDestination
 import com.milanstevic.garanzia.ui.components.SectionCard
 import com.milanstevic.garanzia.ui.components.StatusPill
 
@@ -36,6 +38,14 @@ fun HomeScreen(
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            PremiumBottomBar(
+                selected = PremiumDestination.HOME,
+                onHome = {},
+                onArchive = onOpenArchive,
+                onStorage = onOpenStorage,
+            )
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
