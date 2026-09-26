@@ -127,3 +127,14 @@ Fase 9 — archivio garanzie integrato sopra Room (controllo statico completato;
 - archiviazione telefono/Drive con stato visivo e sincronizzazione più chiara
 - lettore PDF integrato ridisegnato
 - revisione scansione e fotocamera fallback rifinite graficamente
+
+
+### Rifinitura premium
+
+- bottom navigation fissa con Home / Archivio / Backup
+- transizioni crossfade brevi tra schermate
+- card e badge con micro-animazioni di ridimensionamento
+- skeleton loading pulsante per OCR e PDF
+- messaggi backup/sincronizzazione con comparsa e scomparsa animate
+- Home semplificata con una sola azione primaria e navigazione persistente
+- icone Material dedicate nella navigazione
