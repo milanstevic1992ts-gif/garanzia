@@ -83,6 +83,17 @@ class ReceiptArchiveFilterTest {
     }
 
     @Test
+    fun usesFtsMatchingIdsWhenProvided() {
+        val result = ReceiptArchiveFilter.apply(
+            receipts = receipts,
+            state = ArchiveFilterState(query = "qualunque testo"),
+            matchingIds = setOf("r2"),
+        )
+
+        assertEquals(listOf("r2"), result.map { it.receipt.id })
+    }
+
+    @Test
     fun dateRangeIsInclusive() {
         val result = ReceiptArchiveFilter.apply(
             receipts,
