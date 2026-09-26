@@ -39,6 +39,7 @@ data class ArchiveMirrorSummary(
 class ReceiptMirrorManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settings: StorageSettings,
+    private val pendingDeletions: PendingMirrorDeletionStore,
 ) {
     @Synchronized
     fun mirrorReceipt(details: ReceiptWithDetails): ReceiptMirrorResult {
@@ -60,6 +61,7 @@ class ReceiptMirrorManager @Inject constructor(
 
     @Synchronized
     fun mirrorArchive(receipts: List<ReceiptWithDetails>): ArchiveMirrorSummary {
+        processPendingDeletions()
         var successes = 0
         var failures = 0
 
@@ -81,6 +83,93 @@ class ReceiptMirrorManager @Inject constructor(
             successfulCopies = successes,
             failedCopies = failures,
         )
+    }
+
+    @Synchronized
+    fun deleteReceiptCopies(details: ReceiptWithDetails): ReceiptMirrorResult {
+        val state = settings.state.value
+        val directoryName = receiptDirectoryName(details)
+
+        return ReceiptMirrorResult(
+            phone = deleteTargetDirectory(
+                target = StorageTarget.PHONE,
+                treeUri = state.phone.uri,
+                directoryName = directoryName,
+            ),
+            drive = deleteTargetDirectory(
+                target = StorageTarget.DRIVE,
+                treeUri = state.drive.uri,
+                directoryName = directoryName,
+            ),
+        )
+    }
+
+    private fun processPendingDeletions() {
+        val state = settings.state.value
+
+        pendingDeletions.all().forEach { pending ->
+            val treeUri =
+                when (pending.target) {
+                    StorageTarget.PHONE -> state.phone.uri
+                    StorageTarget.DRIVE -> state.drive.uri
+                } ?: return@forEach
+
+            deleteTargetDirectory(
+                target = pending.target,
+                treeUri = treeUri,
+                directoryName = pending.directoryName,
+            )
+        }
+    }
+
+    private fun deleteTargetDirectory(
+        target: StorageTarget,
+        treeUri: Uri?,
+        directoryName: String,
+    ): MirrorTargetResult {
+        if (treeUri == null) {
+            return MirrorTargetResult(
+                target = target,
+                configured = false,
+                success = true,
+                message = "Nessuna cartella configurata",
+            )
+        }
+
+        return runCatching {
+            val root = requireNotNull(
+                DocumentFile.fromTreeUri(context, treeUri),
+            ) { "Cartella non disponibile" }
+
+            require(root.canWrite()) {
+                "La cartella selezionata non è scrivibile"
+            }
+
+            val directory = root.findFile(directoryName)
+            if (directory != null) {
+                require(directory.delete()) {
+                    "Impossibile eliminare la vecchia copia esterna"
+                }
+            }
+
+            pendingDeletions.remove(target, directoryName)
+
+            MirrorTargetResult(
+                target = target,
+                configured = true,
+                success = true,
+                message = "Copia esterna eliminata",
+            )
+        }.getOrElse { error ->
+            pendingDeletions.add(target, directoryName)
+
+            MirrorTargetResult(
+                target = target,
+                configured = true,
+                success = false,
+                message = error.message ?: "Eliminazione esterna da riprovare",
+            )
+        }
     }
 
     private fun mirrorTarget(
