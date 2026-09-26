@@ -9,6 +9,9 @@ concurrency:
   group: verify-garanzia-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -60,6 +63,21 @@ jobs:
           path: app/schemas
           if-no-files-found: error
           retention-days: 7
+
+      - name: Commit generated Room schemas
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "garanzia-ci"
+          git config user.email "garanzia-ci@users.noreply.github.com"
+          git add app/schemas
+
+          if git diff --cached --quiet; then
+            echo "Room schema already committed."
+            exit 0
+          fi
+
+          git commit -m "chore(data): sync Room schemas [skip ci]"
+          git push origin HEAD:main
 
   migration-device-test:
     needs: verify
