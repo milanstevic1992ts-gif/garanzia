@@ -116,7 +116,9 @@ class ReceiptMirrorManager @Inject constructor(
                     val fileName =
                         "pagina_${(page.pageIndex + 1).toString().padStart(2, '0')}.jpg"
 
-                    if (receiptDirectory.findFile(fileName) == null) {
+                    val existing = receiptDirectory.findFile(fileName)
+                    if (existing == null || !existing.isFile || existing.length() <= 0L) {
+                        existing?.delete()
                         copyUriIntoDirectory(
                             sourceUri = Uri.parse(page.originalUri),
                             directory = receiptDirectory,
@@ -126,7 +128,13 @@ class ReceiptMirrorManager @Inject constructor(
                     }
                 }
 
-            if (receiptDirectory.findFile(SUMMARY_FILE) == null) {
+            val existingSummary = receiptDirectory.findFile(SUMMARY_FILE)
+            if (
+                existingSummary == null ||
+                !existingSummary.isFile ||
+                existingSummary.length() <= 0L
+            ) {
+                existingSummary?.delete()
                 writeTextFile(
                     directory = receiptDirectory,
                     displayName = SUMMARY_FILE,
@@ -137,7 +145,13 @@ class ReceiptMirrorManager @Inject constructor(
             details.receipt.rawOcrText
                 ?.takeIf { it.isNotBlank() }
                 ?.let { rawOcr ->
-                    if (receiptDirectory.findFile(OCR_FILE) == null) {
+                    val existingOcr = receiptDirectory.findFile(OCR_FILE)
+                    if (
+                        existingOcr == null ||
+                        !existingOcr.isFile ||
+                        existingOcr.length() <= 0L
+                    ) {
+                        existingOcr?.delete()
                         writeTextFile(
                             directory = receiptDirectory,
                             displayName = OCR_FILE,
@@ -172,12 +186,21 @@ class ReceiptMirrorManager @Inject constructor(
             "Impossibile creare $displayName"
         }
 
-        openSource(sourceUri).use { input ->
-            context.contentResolver.openOutputStream(target.uri, "w").use { output ->
-                requireNotNull(output) { "Impossibile scrivere $displayName" }
-                input.copyTo(output)
-                output.flush()
+        try {
+            openSource(sourceUri).use { input ->
+                context.contentResolver.openOutputStream(target.uri, "w").use { output ->
+                    requireNotNull(output) { "Impossibile scrivere $displayName" }
+                    input.copyTo(output)
+                    output.flush()
+                }
             }
+
+            require(target.length() > 0L) {
+                "$displayName risulta vuoto dopo la copia"
+            }
+        } catch (t: Throwable) {
+            target.delete()
+            throw t
         }
     }
 
@@ -202,11 +225,20 @@ class ReceiptMirrorManager @Inject constructor(
             "Impossibile creare $displayName"
         }
 
-        context.contentResolver.openOutputStream(file.uri, "w").use { output ->
-            requireNotNull(output) { "Impossibile scrivere $displayName" }
-            output.writer(Charsets.UTF_8).use { writer ->
-                writer.write(text)
+        try {
+            context.contentResolver.openOutputStream(file.uri, "w").use { output ->
+                requireNotNull(output) { "Impossibile scrivere $displayName" }
+                output.writer(Charsets.UTF_8).use { writer ->
+                    writer.write(text)
+                }
             }
+
+            require(file.length() > 0L) {
+                "$displayName risulta vuoto dopo la scrittura"
+            }
+        } catch (t: Throwable) {
+            file.delete()
+            throw t
         }
     }
 
