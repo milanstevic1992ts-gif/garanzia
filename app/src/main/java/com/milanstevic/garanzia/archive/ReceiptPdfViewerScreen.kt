@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.milanstevic.garanzia.ui.components.GaranziaHeader
 import com.milanstevic.garanzia.ui.components.InfoStrip
+import com.milanstevic.garanzia.ui.components.PremiumLoadingCard
 import com.milanstevic.garanzia.ui.components.SectionCard
 import com.milanstevic.garanzia.ui.components.StatusPill
 import java.io.Closeable
@@ -131,12 +132,9 @@ fun ReceiptPdfViewerScreen(
 
             when {
                 loading -> {
-                    SectionCard(
-                        title = "Preparazione documento",
-                        subtitle = "Sto creando il PDF dalle immagini originali.",
-                    ) {
-                        CircularProgressIndicator()
-                    }
+                    PremiumLoadingCard(
+                        label = "Preparazione documento",
+                    )
                 }
 
                 combinedError != null -> {
@@ -158,11 +156,9 @@ fun ReceiptPdfViewerScreen(
                 }
 
                 currentSession == null -> {
-                    SectionCard(
-                        title = "Apertura PDF",
-                    ) {
-                        CircularProgressIndicator()
-                    }
+                    PremiumLoadingCard(
+                        label = "Apertura PDF",
+                    )
                 }
 
                 else -> {
