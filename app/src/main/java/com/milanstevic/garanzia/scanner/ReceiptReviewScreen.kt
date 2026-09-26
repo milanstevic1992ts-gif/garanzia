@@ -16,9 +16,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.milanstevic.garanzia.ui.components.GaranziaHeader
+import com.milanstevic.garanzia.ui.components.SectionCard
+import com.milanstevic.garanzia.ui.components.StatusPill
 
 @Composable
 fun ReceiptReviewScreen(
@@ -26,21 +30,25 @@ fun ReceiptReviewScreen(
     onAccept: () -> Unit,
     onDiscard: () -> Unit,
 ) {
-    Scaffold { innerPadding ->
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(
-                text = "Controlla lo scontrino",
-                style = MaterialTheme.typography.headlineSmall,
+            GaranziaHeader(
+                eyebrow = "Prima del riconoscimento",
+                title = "Controlla lo scontrino",
+                subtitle = "Verifica che tutte le pagine siano leggibili prima di avviare l'OCR.",
             )
-            Text(
-                text = "Prima conserviamo l'immagine originale, poi PP-OCRv6 legge il testo sul dispositivo.",
-                style = MaterialTheme.typography.bodyMedium,
+
+            StatusPill(
+                text = "${pages.size} pagina/e pronte",
+                positive = pages.isNotEmpty(),
             )
 
             LazyColumn(
@@ -48,12 +56,15 @@ fun ReceiptReviewScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 itemsIndexed(pages) { index, uri ->
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Pagina ${index + 1}")
+                    SectionCard(
+                        title = "Pagina ${index + 1}",
+                    ) {
                         AsyncImage(
                             model = uri,
                             contentDescription = "Pagina ${index + 1} dello scontrino",
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.medium),
                             contentScale = ContentScale.FillWidth,
                         )
                     }
@@ -62,7 +73,7 @@ fun ReceiptReviewScreen(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 OutlinedButton(
                     modifier = Modifier.weight(1f),
@@ -70,9 +81,11 @@ fun ReceiptReviewScreen(
                 ) {
                     Text("Rifai")
                 }
+
                 Button(
                     modifier = Modifier.weight(1f),
                     onClick = onAccept,
+                    enabled = pages.isNotEmpty(),
                 ) {
                     Text("Conserva e leggi")
                 }
