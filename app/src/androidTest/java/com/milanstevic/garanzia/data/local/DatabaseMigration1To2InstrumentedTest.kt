@@ -189,7 +189,7 @@ class DatabaseMigration1To2InstrumentedTest {
                     confirmedAtEpochMs
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """.trimIndent(),
-                arrayOf(
+                arrayOf<Any?>(
                     RECEIPT_ID,
                     "FERRAMENTA ROSSI SRL",
                     "2026-09-24",
@@ -216,7 +216,7 @@ class DatabaseMigration1To2InstrumentedTest {
                     sourceConfidence
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """.trimIndent(),
-                arrayOf(
+                arrayOf<Any?>(
                     RECEIPT_ID,
                     0,
                     "TRAPANO BOSCH 18V",
@@ -235,7 +235,7 @@ class DatabaseMigration1To2InstrumentedTest {
                     originalUri
                 ) VALUES (?, ?, ?)
                 """.trimIndent(),
-                arrayOf(
+                arrayOf<Any?>(
                     RECEIPT_ID,
                     0,
                     "file:///legacy/receipt_01.jpg",
