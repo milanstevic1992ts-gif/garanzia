@@ -110,55 +110,60 @@ class ReceiptMirrorManager @Inject constructor(
                         "Impossibile creare la cartella dello scontrino"
                     }
 
-            details.pages
+            val expectedPages = details.pages
                 .sortedBy { it.pageIndex }
-                .forEach { page ->
-                    val fileName =
-                        "pagina_${(page.pageIndex + 1).toString().padStart(2, '0')}.jpg"
-
-                    val existing = receiptDirectory.findFile(fileName)
-                    if (existing == null || !existing.isFile || existing.length() <= 0L) {
-                        existing?.delete()
-                        copyUriIntoDirectory(
-                            sourceUri = Uri.parse(page.originalUri),
-                            directory = receiptDirectory,
-                            displayName = fileName,
-                            mimeType = "image/jpeg",
-                        )
-                    }
+                .map { page ->
+                    page to "pagina_${(page.pageIndex + 1).toString().padStart(2, '0')}.jpg"
                 }
 
-            val existingSummary = receiptDirectory.findFile(SUMMARY_FILE)
-            if (
-                existingSummary == null ||
-                !existingSummary.isFile ||
-                existingSummary.length() <= 0L
-            ) {
-                existingSummary?.delete()
+            val complete =
+                receiptDirectory.findFile(COMPLETE_FILE)?.isFile == true &&
+                    receiptDirectory.findFile(SUMMARY_FILE)?.isFile == true &&
+                    expectedPages.all { (_, fileName) ->
+                        receiptDirectory.findFile(fileName)?.isFile == true
+                    } &&
+                    (
+                        details.receipt.rawOcrText.isNullOrBlank() ||
+                            receiptDirectory.findFile(OCR_FILE)?.isFile == true
+                        )
+
+            if (!complete) {
+                cleanManagedFiles(receiptDirectory)
+
+                expectedPages.forEach { (page, fileName) ->
+                    copyUriIntoDirectory(
+                        sourceUri = Uri.parse(page.originalUri),
+                        directory = receiptDirectory,
+                        displayName = fileName,
+                        mimeType = "image/jpeg",
+                    )
+                }
+
                 writeTextFile(
                     directory = receiptDirectory,
                     displayName = SUMMARY_FILE,
                     text = buildSummary(details),
                 )
-            }
 
-            details.receipt.rawOcrText
-                ?.takeIf { it.isNotBlank() }
-                ?.let { rawOcr ->
-                    val existingOcr = receiptDirectory.findFile(OCR_FILE)
-                    if (
-                        existingOcr == null ||
-                        !existingOcr.isFile ||
-                        existingOcr.length() <= 0L
-                    ) {
-                        existingOcr?.delete()
+                details.receipt.rawOcrText
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { rawOcr ->
                         writeTextFile(
                             directory = receiptDirectory,
                             displayName = OCR_FILE,
                             text = rawOcr,
                         )
                     }
-                }
+
+                writeTextFile(
+                    directory = receiptDirectory,
+                    displayName = COMPLETE_FILE,
+                    text =
+                        "receiptId=${details.receipt.id}\n" +
+                            "pages=${expectedPages.size}\n" +
+                            "completed=true\n",
+                )
+            }
 
             MirrorTargetResult(
                 target = target,
@@ -187,16 +192,17 @@ class ReceiptMirrorManager @Inject constructor(
         }
 
         try {
-            openSource(sourceUri).use { input ->
+            val copiedBytes = openSource(sourceUri).use { input ->
                 context.contentResolver.openOutputStream(target.uri, "w").use { output ->
                     requireNotNull(output) { "Impossibile scrivere $displayName" }
-                    input.copyTo(output)
+                    val copied = input.copyTo(output)
                     output.flush()
+                    copied
                 }
             }
 
-            require(target.length() > 0L) {
-                "$displayName risulta vuoto dopo la copia"
+            require(copiedBytes > 0L) {
+                "$displayName non contiene dati"
             }
         } catch (t: Throwable) {
             target.delete()
@@ -233,12 +239,23 @@ class ReceiptMirrorManager @Inject constructor(
                 }
             }
 
-            require(file.length() > 0L) {
-                "$displayName risulta vuoto dopo la scrittura"
-            }
         } catch (t: Throwable) {
             file.delete()
             throw t
+        }
+    }
+
+    private fun cleanManagedFiles(directory: DocumentFile) {
+        directory.listFiles().forEach { file ->
+            val name = file.name.orEmpty()
+            if (
+                name.startsWith(PAGE_PREFIX) ||
+                name == SUMMARY_FILE ||
+                name == OCR_FILE ||
+                name == COMPLETE_FILE
+            ) {
+                file.delete()
+            }
         }
     }
 
@@ -296,7 +313,9 @@ class ReceiptMirrorManager @Inject constructor(
         }
 
     private companion object {
+        const val PAGE_PREFIX = "pagina_"
         const val SUMMARY_FILE = "dati_scontrino.txt"
         const val OCR_FILE = "ocr_originale.txt"
+        const val COMPLETE_FILE = "sincronizzazione_completa.txt"
     }
 }
