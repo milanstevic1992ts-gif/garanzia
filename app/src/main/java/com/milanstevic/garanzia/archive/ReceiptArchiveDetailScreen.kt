@@ -38,6 +38,7 @@ import java.time.format.DateTimeFormatter
 fun ReceiptArchiveDetailScreen(
     details: ReceiptWithDetails,
     onOpenPdf: () -> Unit,
+    onOpenProduct: (Long) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     isDeleting: Boolean,
@@ -230,6 +231,13 @@ fun ReceiptArchiveDetailScreen(
                                 details.receipt.currency,
                             ),
                         )
+                    }
+
+                    OutlinedButton(
+                        onClick = { onOpenProduct(product.id) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Apri scheda prodotto")
                     }
                 }
             }
