@@ -57,6 +57,7 @@ import com.milanstevic.garanzia.ui.home.HomeScreen
 import com.milanstevic.garanzia.ui.theme.GaranziaTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -157,6 +158,7 @@ private fun GaranziaApp(
     val databaseError = archiveState.error
     var selectedArchiveReceiptId by remember { mutableStateOf<String?>(null) }
     var archiveFilters by remember { mutableStateOf(ArchiveFilterState()) }
+    var archiveSearchIds by remember { mutableStateOf<Set<String>?>(null) }
     val storageState by storageSettings.state.collectAsState()
     var storageSyncInProgress by remember { mutableStateOf(false) }
     var storageMessage by remember { mutableStateOf<String?>(null) }
@@ -361,6 +363,25 @@ private fun GaranziaApp(
                 storageSyncInProgress = false
             }
         }
+    }
+
+    LaunchedEffect(
+        archiveFilters.query,
+        archiveReceipts.size,
+    ) {
+        val query = archiveFilters.query.trim()
+
+        archiveSearchIds =
+            if (query.isBlank()) {
+                null
+            } else {
+                delay(180)
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        receiptRepository.searchReceiptIds(query)
+                    }
+                }.getOrNull()
+            }
     }
 
     val cameraPermissionLauncher =
@@ -590,6 +611,7 @@ private fun GaranziaApp(
         AppScreen.ARCHIVE -> ReceiptArchiveScreen(
             receipts = archiveReceipts,
             filters = archiveFilters,
+            matchingIds = archiveSearchIds,
             onFiltersChange = { archiveFilters = it },
             onOpenReceipt = { receiptId ->
                 selectedArchiveReceiptId = receiptId
