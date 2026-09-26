@@ -38,6 +38,7 @@ fun StorageSettingsScreen(
     onClearPhone: () -> Unit,
     onClearDrive: () -> Unit,
     onSyncNow: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     onOpenHome: () -> Unit,
     onOpenArchive: () -> Unit,
 ) {
@@ -128,6 +129,18 @@ fun StorageSettingsScreen(
                                     !it.contains("riprov", ignoreCase = true),
                         )
                     }
+                }
+            }
+
+            SectionCard(
+                title = "Diagnostica",
+                subtitle = "Controlla OCR, database, originali, spazio libero e accesso alle cartelle.",
+            ) {
+                OutlinedButton(
+                    onClick = onOpenDiagnostics,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Apri diagnostica")
                 }
             }
 
