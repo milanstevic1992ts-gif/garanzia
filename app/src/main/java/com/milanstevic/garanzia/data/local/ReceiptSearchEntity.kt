@@ -59,7 +59,7 @@ object ReceiptFtsQuery {
     fun build(value: String): String? {
         val tokens = TOKEN_REGEX
             .findAll(value)
-            .map { it.value }
+            .map { it.value.lowercase() }
             .filter { it.isNotBlank() }
             .take(MAX_TERMS)
             .toList()
