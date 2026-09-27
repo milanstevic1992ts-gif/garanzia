@@ -3,7 +3,7 @@ package com.milanstevic.garanzia.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 
-const val GARANZIA_SCHEMA_VERSION = 2
+const val GARANZIA_SCHEMA_VERSION = 3
 
 @Database(
     entities = [

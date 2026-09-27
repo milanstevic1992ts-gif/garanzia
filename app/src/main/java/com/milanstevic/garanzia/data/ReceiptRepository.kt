@@ -134,11 +134,30 @@ class ReceiptRepository @Inject constructor(
             paymentMethod = draft.paymentMethod.trim().ifBlank { null },
         )
 
+        val unmatchedExistingProducts = existing.products.toMutableList()
+        val allowPositionFallback = draft.products.size == existing.products.size
         val products = draft.products.mapIndexed { index, product ->
+            val normalizedName = product.name.trim()
+            val previous =
+                unmatchedExistingProducts.firstOrNull {
+                    it.position == index && it.name.equals(normalizedName, ignoreCase = true)
+                } ?: unmatchedExistingProducts.firstOrNull {
+                    it.name.equals(normalizedName, ignoreCase = true)
+                } ?: if (allowPositionFallback) {
+                    unmatchedExistingProducts.firstOrNull {
+                        it.position == index
+                    }
+                } else {
+                    null
+                }
+
+            previous?.let(unmatchedExistingProducts::remove)
+
             ReceiptProductEntity(
+                id = previous?.id ?: 0,
                 receiptId = receiptId,
                 position = index,
-                name = product.name.trim(),
+                name = normalizedName,
                 quantity = product.quantity
                     .takeIf(String::isNotBlank)
                     ?.let(ReceiptConfirmationDraft::parseQuantity)
@@ -153,6 +172,10 @@ class ReceiptRepository @Inject constructor(
                     ?.let(ReceiptConfirmationDraft::parseMoney)
                     ?.toPlainString(),
                 sourceConfidence = product.sourceConfidence,
+                warrantyMonths = previous?.warrantyMonths,
+                warrantyReminderDays = previous?.warrantyReminderDays ?: DEFAULT_WARRANTY_REMINDER_DAYS,
+                warrantyNotificationsEnabled = previous?.warrantyNotificationsEnabled ?: true,
+                warrantyLastNotificationKey = previous?.warrantyLastNotificationKey,
             )
         }
 
@@ -227,12 +250,51 @@ class ReceiptRepository @Inject constructor(
             .toSet()
     }
 
+    suspend fun updateProductWarranty(
+        receiptId: String,
+        productId: Long,
+        warrantyMonths: Int?,
+        reminderDays: Int,
+        notificationsEnabled: Boolean,
+    ) {
+        require(warrantyMonths == null || warrantyMonths in 1..MAX_WARRANTY_MONTHS) {
+            "Durata garanzia non valida"
+        }
+        require(reminderDays in 1..MAX_REMINDER_DAYS) {
+            "Preavviso garanzia non valido"
+        }
+
+        val updated = receiptDao.updateProductWarranty(
+            receiptId = receiptId,
+            productId = productId,
+            warrantyMonths = warrantyMonths,
+            reminderDays = reminderDays,
+            notificationsEnabled = notificationsEnabled && warrantyMonths != null,
+        )
+        check(updated == 1) { "Prodotto non trovato" }
+    }
+
+    suspend fun markWarrantyNotification(
+        receiptId: String,
+        productId: Long,
+        notificationKey: String,
+    ) {
+        receiptDao.markWarrantyNotification(
+            receiptId = receiptId,
+            productId = productId,
+            notificationKey = notificationKey,
+        )
+    }
+
     suspend fun deleteReceipt(receiptId: String) {
         receiptDao.deleteReceiptGraph(receiptId)
     }
 
     private companion object {
         const val DATABASE_RETRY_MS = 2_000L
+        const val DEFAULT_WARRANTY_REMINDER_DAYS = 30
+        const val MAX_WARRANTY_MONTHS = 120
+        const val MAX_REMINDER_DAYS = 365
 
         val DATE_FORMAT: DateTimeFormatter = DateTimeFormatter
             .ofPattern("dd/MM/uuuu")

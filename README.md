@@ -3,7 +3,7 @@
 Archivio Android offline-first per scontrini e garanzie.
 
 ## Stato progetto
-Fase 10 — scheda prodotto integrata nell'archivio (test unitari, lint e migrazione Room su emulatore automatizzati; build release prevista in Fase 16).
+Fase 11 — motore garanzie e notifiche integrato (durata, scadenza, stato, preavviso e controllo periodico; build release prevista in Fase 15).
 
 ## Principi
 - Android nativo: Kotlin + Jetpack Compose + Material 3
@@ -54,7 +54,6 @@ Fase 10 — scheda prodotto integrata nell'archivio (test unitari, lint e migraz
    - esclusione di totale, subtotale, IVA, resto, pagamento e metadata
    - protezioni contro falsi positivi come `carta abrasiva`
    - prefissi come `ARTICOLO` / `PRODOTTO` puliti senza perdere il nome reale
-   - barcode/EAN volutamente rimandati alla Fase 11
    - test unitari multi-prodotto e test di integrazione nel risultato scontrino
 7. ✅ Conferma intelligente
    - schermata dedicata dopo OCR e interpretazione
@@ -70,7 +69,7 @@ Fase 10 — scheda prodotto integrata nell'archivio (test unitari, lint e migraz
    - conferma mantenuta solo nella sessione: nessun salvataggio database anticipato
    - test unitari del modello di conferma e delle validazioni
 8. ✅ Database locale completo
-   - Room / SQLite con database `garanzia.db` versione 2
+   - Room / SQLite con database `garanzia.db` versione 3
    - tabella scontrini con dati confermati, data canonica e testo OCR grezzo
    - tabella prodotti collegata allo scontrino con ordine stabile
    - tabella pagine originali con URI dei file conservati
@@ -85,8 +84,8 @@ Fase 10 — scheda prodotto integrata nell'archivio (test unitari, lint e migraz
    - lettura singolo scontrino, osservazione elenco e cancellazione predisposte per la Fase 9
    - schema export Room configurato per le future migrazioni
    - schema Room JSON versionato nella repository
-   - migrazione esplicita `1 → 2` senza fallback distruttivo
-   - migrazione `1 → 2` verificata su emulatore Android con scontrino, prodotto e pagina preesistenti
+   - migrazioni esplicite `1 → 2 → 3` senza fallback distruttivo
+   - migrazioni verificate su emulatore Android preservando scontrini e prodotti preesistenti
    - indice FTS4 Unicode per ricerca scalabile su archivio
    - test strumentali con database Room in memoria, persistenza completa e `CASCADE`
    - nessuna UI archivio anticipata: resta alla Fase 9
@@ -121,14 +120,26 @@ Fase 10 — scheda prodotto integrata nell'archivio (test unitari, lint e migraz
    - accesso alla modifica dello scontrino mantenendo il prodotto legato al documento originale
    - controllo di ownership: un prodotto non può essere mostrato sotto uno scontrino diverso
    - test unitari dedicati al mapping prodotto/scontrino
-   - barcode/EAN volutamente rimandati alla Fase 11
-   - durata/scadenza garanzia e notifiche volutamente rimandate alla Fase 12
-11. Barcode / EAN
-12. Motore garanzie e notifiche
-13. Backup / ripristino locale
-14. Sicurezza
-15. Banco prova OCR italiano
-16. Build release e APK firmata
+11. ✅ Motore garanzie e notifiche
+   - durata garanzia configurabile per singolo prodotto in mesi
+   - scadenza calcolata automaticamente dalla data di acquisto
+   - stato `Attiva`, `In scadenza` o `Scaduta`
+   - giorni rimanenti mostrati nella scheda prodotto
+   - preavviso configurabile da 1 a 365 giorni
+   - notifiche Android opzionali per singolo prodotto
+   - un avviso quando la garanzia entra nella finestra di preavviso
+   - un secondo avviso quando la garanzia risulta scaduta
+   - protezione contro notifiche duplicate tramite chiave persistente
+   - controllo periodico con WorkManager ogni 24 ore
+   - controllo immediato dopo il salvataggio della garanzia
+   - permesso notifiche richiesto su Android 13+ solo quando necessario
+   - dati garanzia preservati quando lo scontrino viene modificato
+   - migrazione Room `2 → 3` non distruttiva
+   - test unitari del calcolo scadenza e test strumentale della migrazione
+12. Backup / ripristino locale
+13. Sicurezza
+14. Banco prova OCR italiano
+15. Build release e APK firmata
 
 
 ## Restyling UI

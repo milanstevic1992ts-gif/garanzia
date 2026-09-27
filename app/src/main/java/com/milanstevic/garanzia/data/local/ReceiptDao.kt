@@ -86,6 +86,37 @@ abstract class ReceiptDao {
     )
     abstract suspend fun searchReceiptIds(ftsQuery: String): List<String>
 
+    @Query(
+        """
+        UPDATE receipt_products
+        SET warrantyMonths = :warrantyMonths,
+            warrantyReminderDays = :reminderDays,
+            warrantyNotificationsEnabled = :notificationsEnabled,
+            warrantyLastNotificationKey = NULL
+        WHERE id = :productId AND receiptId = :receiptId
+        """,
+    )
+    abstract suspend fun updateProductWarranty(
+        receiptId: String,
+        productId: Long,
+        warrantyMonths: Int?,
+        reminderDays: Int,
+        notificationsEnabled: Boolean,
+    ): Int
+
+    @Query(
+        """
+        UPDATE receipt_products
+        SET warrantyLastNotificationKey = :notificationKey
+        WHERE id = :productId AND receiptId = :receiptId
+        """,
+    )
+    abstract suspend fun markWarrantyNotification(
+        receiptId: String,
+        productId: Long,
+        notificationKey: String,
+    ): Int
+
     @Query("DELETE FROM receipts WHERE id = :receiptId")
     protected abstract suspend fun deleteReceiptRow(receiptId: String)
 

@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -57,6 +58,7 @@ import com.milanstevic.garanzia.storage.StorageSettingsScreen
 import com.milanstevic.garanzia.storage.StorageTarget
 import com.milanstevic.garanzia.ui.home.HomeScreen
 import com.milanstevic.garanzia.ui.theme.GaranziaTheme
+import com.milanstevic.garanzia.warranty.WarrantyNotificationScheduler
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -161,6 +163,9 @@ private fun GaranziaApp(
     val databaseError = archiveState.error
     var selectedArchiveReceiptId by remember { mutableStateOf<String?>(null) }
     var selectedProductId by remember { mutableStateOf<Long?>(null) }
+    var warrantySaving by remember { mutableStateOf(false) }
+    var warrantyMessage by remember { mutableStateOf<String?>(null) }
+    var warrantyError by remember { mutableStateOf<String?>(null) }
     var archiveFilters by remember { mutableStateOf(ArchiveFilterState()) }
     var archiveSearchIds by remember { mutableStateOf<Set<String>?>(null) }
     val storageState by storageSettings.state.collectAsState()
@@ -185,6 +190,15 @@ private fun GaranziaApp(
     var isSavingReceipt by remember { mutableStateOf(false) }
     var saveReceiptError by remember { mutableStateOf<String?>(null) }
     var ocrError by remember { mutableStateOf<String?>(null) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (!granted) {
+            warrantyMessage =
+                "Garanzia salvata. Le notifiche restano disattivate da Android finché non concedi il permesso."
+        }
+    }
 
     fun showReview(uris: List<Uri>) {
         stagedUris.clear()
@@ -658,6 +672,8 @@ private fun GaranziaApp(
                     },
                     onOpenProduct = { productId ->
                         selectedProductId = productId
+                        warrantyMessage = null
+                        warrantyError = null
                         screen = AppScreen.PRODUCT_DETAIL
                     },
                     onEdit = {
@@ -748,12 +764,63 @@ private fun GaranziaApp(
                     },
                     onEditReceipt = {
                         selectedProductId = null
+                        warrantyMessage = null
+                        warrantyError = null
                         editingReceiptId = details.receipt.id
                         confirmationDraft = ReceiptConfirmationDraft.fromStored(details)
                         saveReceiptError = null
                         screen = AppScreen.CONFIRM
                     },
+                    onSaveWarranty = { warrantyMonths, reminderDays, notificationsEnabled ->
+                        if (!warrantySaving) {
+                            warrantySaving = true
+                            warrantyMessage = null
+                            warrantyError = null
+
+                            if (
+                                notificationsEnabled &&
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                ContextCompat.checkSelfPermission(
+                                    activity,
+                                    Manifest.permission.POST_NOTIFICATIONS,
+                                ) != PackageManager.PERMISSION_GRANTED
+                            ) {
+                                notificationPermissionLauncher.launch(
+                                    Manifest.permission.POST_NOTIFICATIONS,
+                                )
+                            }
+
+                            scope.launch {
+                                try {
+                                    receiptRepository.updateProductWarranty(
+                                        receiptId = details.receipt.id,
+                                        productId = product.productId,
+                                        warrantyMonths = warrantyMonths,
+                                        reminderDays = reminderDays,
+                                        notificationsEnabled = notificationsEnabled,
+                                    )
+                                    WarrantyNotificationScheduler.enqueueNow(activity)
+                                    warrantyMessage =
+                                        if (warrantyMonths == null) {
+                                            "Garanzia rimossa."
+                                        } else {
+                                            "Garanzia salvata."
+                                        }
+                                } catch (t: Throwable) {
+                                    warrantyError =
+                                        t.message ?: "Impossibile salvare la garanzia"
+                                } finally {
+                                    warrantySaving = false
+                                }
+                            }
+                        }
+                    },
+                    warrantySaving = warrantySaving,
+                    warrantyMessage = warrantyMessage,
+                    warrantyError = warrantyError,
                     onBack = {
+                        warrantyMessage = null
+                        warrantyError = null
                         selectedProductId = null
                         screen = AppScreen.ARCHIVE_DETAIL
                     },
