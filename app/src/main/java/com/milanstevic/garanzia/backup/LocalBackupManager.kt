@@ -168,7 +168,9 @@ class LocalBackupManager @Inject constructor(
                 repository.replaceArchive(restored)
             } catch (t: Throwable) {
                 fileStore.deleteOriginals(importedOriginalUris)
-                importedAttachmentUris.forEach(productAttachmentStore::delete)
+                importedAttachmentUris.forEach { uri ->
+                    productAttachmentStore.delete(uri)
+                }
                 throw t
             }
 
