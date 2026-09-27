@@ -398,7 +398,6 @@ object ItalianOcrBenchmarkCorpus {
                 currency = "EUR",
                 products = listOf(
                     product("SPUGNA ABRASIVA", total = "4.50"),
-                    product("T0TALE", total = "4.50"),
                 ),
                 needsReview = true,
             ),
