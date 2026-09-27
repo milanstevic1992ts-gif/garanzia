@@ -52,20 +52,20 @@ class WarrantyNotificationWorker(
         return@withContext try {
             val today = LocalDate.now()
 
-            repository.getAllReceipts().forEach { receipt ->
-                receipt.products.forEach { product ->
-                    if (!product.warrantyNotificationsEnabled) return@forEach
+            for (receipt in repository.getAllReceipts()) {
+                for (product in receipt.products) {
+                    if (!product.warrantyNotificationsEnabled) continue
 
                     val snapshot = WarrantyEngine.calculate(
                         purchaseDateIso = receipt.receipt.purchaseDate,
                         warrantyMonths = product.warrantyMonths,
                         reminderDays = product.warrantyReminderDays,
                         today = today,
-                    ) ?: return@forEach
+                    ) ?: continue
 
-                    val notificationKey = snapshot.notificationKey ?: return@forEach
+                    val notificationKey = snapshot.notificationKey ?: continue
                     if (product.warrantyLastNotificationKey == notificationKey) {
-                        return@forEach
+                        continue
                     }
 
                     postNotification(
