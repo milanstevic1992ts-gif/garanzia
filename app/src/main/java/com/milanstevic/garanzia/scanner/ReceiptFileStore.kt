@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.InputStream
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -93,6 +94,21 @@ class ReceiptFileStore @Inject constructor(
         } catch (_: Throwable) {
             targets.forEach(File::delete)
             emptyList()
+        }
+    }
+
+    fun importRestoredOriginal(input: InputStream): Uri {
+        val target = File(originalsDir, "receipt_${UUID.randomUUID()}.jpg")
+        try {
+            target.outputStream().use { output ->
+                val copied = input.copyTo(output)
+                output.flush()
+                require(copied > 0L) { "Il file originale del backup è vuoto" }
+            }
+            return Uri.fromFile(target)
+        } catch (t: Throwable) {
+            target.delete()
+            throw t
         }
     }
 
