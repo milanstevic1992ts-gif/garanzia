@@ -272,8 +272,9 @@ private fun GaranziaApp(
                     val summary = localBackupManager.createBackup(uri)
                     backupMessage =
                         "Backup creato: ${summary.receiptCount} scontrini, " +
-                            "${summary.productCount} prodotti e " +
-                            "${summary.pageCount} pagine originali."
+                            "${summary.productCount} prodotti, " +
+                            "${summary.pageCount} pagine originali e " +
+                            "${summary.attachmentCount} allegati prodotto."
                 } catch (t: Throwable) {
                     backupMessage = t.message ?: "Impossibile creare il backup"
                 } finally {
@@ -1148,8 +1149,9 @@ private fun GaranziaApp(
 
                             backupMessage =
                                 "Ripristino completato: ${summary.receiptCount} scontrini, " +
-                                    "${summary.productCount} prodotti e " +
-                                    "${summary.pageCount} pagine originali."
+                                    "${summary.productCount} prodotti, " +
+                                    "${summary.pageCount} pagine originali e " +
+                                    "${summary.attachmentCount} allegati prodotto."
                         } catch (t: Throwable) {
                             backupMessage = t.message ?: "Impossibile ripristinare il backup"
                         } finally {
