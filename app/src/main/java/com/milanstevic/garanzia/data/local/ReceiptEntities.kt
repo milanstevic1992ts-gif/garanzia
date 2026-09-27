@@ -1,5 +1,6 @@
 package com.milanstevic.garanzia.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -52,6 +53,12 @@ data class ReceiptProductEntity(
     val unitPrice: String?,
     val lineTotal: String?,
     val sourceConfidence: Float?,
+    val warrantyMonths: Int? = null,
+    @ColumnInfo(defaultValue = "30")
+    val warrantyReminderDays: Int = 30,
+    @ColumnInfo(defaultValue = "1")
+    val warrantyNotificationsEnabled: Boolean = true,
+    val warrantyLastNotificationKey: String? = null,
 )
 
 @Entity(
