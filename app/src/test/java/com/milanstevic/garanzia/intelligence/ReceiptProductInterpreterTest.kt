@@ -161,6 +161,37 @@ class ReceiptProductInterpreterTest {
 
 
     @Test
+    fun loyaltyCardRowIsIgnoredAndDoesNotConsumeFollowingProduct() {
+        val products = interpreter.interpret(
+            receipt = receiptOf(
+                line("EMPORIO TEST SRL"),
+                line("CARTA FEDELTA 123456789"),
+                line("DETERGENTE CASA 5,90"),
+                line("TOTALE 5,90 €"),
+            ),
+            merchantEvidence = "EMPORIO TEST SRL",
+        )
+
+        assertEquals(1, products.size)
+        assertEquals("DETERGENTE CASA", products.single().value.name)
+    }
+
+    @Test
+    fun ocrConfusedTotalLabelIsNeverAProduct() {
+        val products = interpreter.interpret(
+            receipt = receiptOf(
+                line("NEGOZIO TEST SRL"),
+                line("SPUGNA ABRASIVA 4,50"),
+                line("T0TALE 4,50 €"),
+            ),
+            merchantEvidence = "NEGOZIO TEST SRL",
+        )
+
+        assertEquals(1, products.size)
+        assertEquals("SPUGNA ABRASIVA", products.single().value.name)
+    }
+
+    @Test
     fun cassaAttrezziRemainsAProductWhileRegisterRowIsIgnored() {
         val products = interpreter.interpret(
             receipt = receiptOf(
