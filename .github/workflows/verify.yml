@@ -88,6 +88,28 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      - name: Prepare Android signing verification tools
+        run: |
+          set -euo pipefail
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          BUILD_TOOLS_DIR="$(dirname "$APKSIGNER")"
+          mkdir -p dist/android-signing-tools/lib
+          cp "$BUILD_TOOLS_DIR/apksigner" dist/android-signing-tools/
+          cp "$BUILD_TOOLS_DIR/zipalign" dist/android-signing-tools/
+          cp "$BUILD_TOOLS_DIR/aapt2" dist/android-signing-tools/
+          cp "$BUILD_TOOLS_DIR/lib/apksigner.jar" dist/android-signing-tools/lib/
+          chmod +x dist/android-signing-tools/apksigner
+          chmod +x dist/android-signing-tools/zipalign
+          chmod +x dist/android-signing-tools/aapt2
+
+      - name: Upload Android signing verification tools
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-signing-tools-linux
+          path: dist/android-signing-tools
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload generated Room schema
         uses: actions/upload-artifact@v4
         with:
