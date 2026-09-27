@@ -120,6 +120,30 @@ abstract class ReceiptDao {
     @Query("DELETE FROM receipts WHERE id = :receiptId")
     protected abstract suspend fun deleteReceiptRow(receiptId: String)
 
+    @Query("DELETE FROM receipt_search")
+    protected abstract suspend fun deleteAllSearchRows()
+
+    @Query("DELETE FROM receipts")
+    protected abstract suspend fun deleteAllReceiptRows()
+
+    @Transaction
+    open suspend fun replaceArchive(receipts: List<ReceiptWithDetails>) {
+        deleteAllSearchRows()
+        deleteAllReceiptRows()
+
+        receipts.forEach { details ->
+            insertReceipt(details.receipt)
+            insertProducts(details.products)
+            insertPages(details.pages)
+            insertSearch(
+                ReceiptSearchEntity.from(
+                    receipt = details.receipt,
+                    products = details.products,
+                ),
+            )
+        }
+    }
+
     @Transaction
     open suspend fun deleteReceiptGraph(receiptId: String) {
         deleteSearchForReceipt(receiptId)
