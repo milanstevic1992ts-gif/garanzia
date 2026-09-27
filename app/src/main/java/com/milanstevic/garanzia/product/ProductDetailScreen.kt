@@ -68,9 +68,13 @@ fun ProductDetailScreen(
     val parsedReminderDays = reminderDaysText.trim().toIntOrNull()
     val monthsValid =
         warrantyMonthsText.isBlank() ||
-            parsedWarrantyMonths in 1..WarrantyEngine.MAX_WARRANTY_MONTHS
+            (
+                parsedWarrantyMonths != null &&
+                    parsedWarrantyMonths in 1..WarrantyEngine.MAX_WARRANTY_MONTHS
+                )
     val reminderValid =
-        parsedReminderDays in 1..WarrantyEngine.MAX_REMINDER_DAYS
+        parsedReminderDays != null &&
+            parsedReminderDays in 1..WarrantyEngine.MAX_REMINDER_DAYS
     val canSaveWarranty = monthsValid && reminderValid && !warrantySaving
 
     Scaffold(
@@ -346,7 +350,7 @@ private fun formatAmount(
 
     return when (currency) {
         "EUR" -> "$number €"
-        "USD" -> "$number \\$"
+        "USD" -> "$number \$"
         "GBP" -> "$number £"
         null -> number
         else -> "$number $currency"
