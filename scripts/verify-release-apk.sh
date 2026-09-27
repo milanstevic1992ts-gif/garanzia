@@ -22,6 +22,11 @@ AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -
 test -x "$APKSIGNER"
 test -x "$ZIPALIGN"
 
+BUILD_TOOLS_DIR="$(dirname "$APKSIGNER")"
+if [[ -d "$BUILD_TOOLS_DIR/lib64" ]]; then
+  export LD_LIBRARY_PATH="$BUILD_TOOLS_DIR/lib64:${LD_LIBRARY_PATH:-}"
+fi
+
 if [[ -n "$APKANALYZER" && -x "$APKANALYZER" ]]; then
   PACKAGE="$("$APKANALYZER" manifest application-id "$APK")"
   VERSION_NAME="$("$APKANALYZER" manifest version-name "$APK")"
