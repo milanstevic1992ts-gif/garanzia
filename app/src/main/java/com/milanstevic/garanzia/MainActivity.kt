@@ -248,6 +248,7 @@ private fun GaranziaApp(
                             category = pendingAttachmentCategory,
                             sourceUri = uri,
                         )
+                        BackgroundSyncScheduler.enqueueNow(activity)
                         attachmentMessage =
                             "Immagine aggiunta come ${pendingAttachmentCategory.label}."
                     } catch (t: Throwable) {
@@ -645,6 +646,7 @@ private fun GaranziaApp(
                                         category = pendingAttachmentCategory,
                                         capturedFile = output,
                                     )
+                                    BackgroundSyncScheduler.enqueueNow(activity)
                                     attachmentMessage =
                                         "Foto aggiunta come ${pendingAttachmentCategory.label}."
                                 } catch (t: Throwable) {
@@ -1046,6 +1048,7 @@ private fun GaranziaApp(
                             scope.launch {
                                 try {
                                     val fileRemoved = productAttachmentManager.delete(attachment)
+                                    BackgroundSyncScheduler.enqueueNow(activity)
                                     attachmentMessage =
                                         if (fileRemoved) {
                                             "Allegato eliminato."
