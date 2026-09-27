@@ -66,6 +66,28 @@ jobs:
       - name: Android lint
         run: gradle :app:lintDebug --stacktrace
 
+      - name: Assemble release APK
+        run: gradle :app:assembleRelease --stacktrace
+
+      - name: Prepare unsigned release artifact
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -s "$APK"
+          mkdir -p dist
+          cp "$APK" dist/Garanzia-v1.0.0-UNSIGNED.apk
+          sha256sum dist/Garanzia-v1.0.0-UNSIGNED.apk             > dist/Garanzia-v1.0.0-UNSIGNED.apk.sha256
+
+      - name: Upload unsigned release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: garanzia-v1.0.0-unsigned
+          path: |
+            dist/Garanzia-v1.0.0-UNSIGNED.apk
+            dist/Garanzia-v1.0.0-UNSIGNED.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload generated Room schema
         uses: actions/upload-artifact@v4
         with:
