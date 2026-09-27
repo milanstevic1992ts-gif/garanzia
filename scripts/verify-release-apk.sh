@@ -16,15 +16,23 @@ EXPECTED_CERT_SHA256="34b9327e4500c642afce16db2304c70dc9e638e0850ef4dacb4a36bd0b
 
 APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
 ZIPALIGN="$(find "$ANDROID_HOME/build-tools" -type f -name zipalign | sort -V | tail -1)"
-APKANALYZER="$(find "$ANDROID_HOME" -type f -name apkanalyzer | head -1)"
+APKANALYZER="$(find "$ANDROID_HOME" -type f -name apkanalyzer | head -1 || true)"
+AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 | sort -V | tail -1)"
 
 test -x "$APKSIGNER"
 test -x "$ZIPALIGN"
-test -x "$APKANALYZER"
 
-PACKAGE="$("$APKANALYZER" manifest application-id "$APK")"
-VERSION_NAME="$("$APKANALYZER" manifest version-name "$APK")"
-VERSION_CODE="$("$APKANALYZER" manifest version-code "$APK")"
+if [[ -n "$APKANALYZER" && -x "$APKANALYZER" ]]; then
+  PACKAGE="$("$APKANALYZER" manifest application-id "$APK")"
+  VERSION_NAME="$("$APKANALYZER" manifest version-name "$APK")"
+  VERSION_CODE="$("$APKANALYZER" manifest version-code "$APK")"
+else
+  test -x "$AAPT2"
+  BADGING="$("$AAPT2" dump badging "$APK")"
+  PACKAGE="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<<"$BADGING")"
+  VERSION_CODE="$(sed -n "s/^package:.*versionCode='\([^']*\)'.*/\1/p" <<<"$BADGING")"
+  VERSION_NAME="$(sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p" <<<"$BADGING")"
+fi
 
 [[ "$PACKAGE" == "$EXPECTED_PACKAGE" ]]
 [[ "$VERSION_NAME" == "$EXPECTED_VERSION_NAME" ]]
