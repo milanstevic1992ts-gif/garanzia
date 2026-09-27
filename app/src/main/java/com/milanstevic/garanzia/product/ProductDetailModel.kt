@@ -2,6 +2,7 @@ package com.milanstevic.garanzia.product
 
 import com.milanstevic.garanzia.data.local.ReceiptProductEntity
 import com.milanstevic.garanzia.data.local.ReceiptWithDetails
+import com.milanstevic.garanzia.product.attachment.ProductAttachmentItem
 import com.milanstevic.garanzia.warranty.WarrantyEngine
 import com.milanstevic.garanzia.warranty.WarrantySnapshot
 
@@ -26,6 +27,7 @@ data class ProductDetailData(
     val warrantyReminderDays: Int,
     val warrantyNotificationsEnabled: Boolean,
     val warranty: WarrantySnapshot?,
+    val attachments: List<ProductAttachmentItem>,
 )
 
 object ProductDetailMapper {
@@ -73,6 +75,10 @@ object ProductDetailMapper {
                     reminderDays = product.warrantyReminderDays,
                 )
             }.getOrNull(),
+            attachments = details.attachments
+                .filter { it.productId == product.id }
+                .sortedByDescending { it.createdAtEpochMs }
+                .map(ProductAttachmentItem::from),
         )
     }
 }
