@@ -2,6 +2,7 @@ package com.milanstevic.garanzia.storage
 
 import android.content.Context
 import android.net.Uri
+import android.webkit.MimeTypeMap
 import androidx.documentfile.provider.DocumentFile
 import com.milanstevic.garanzia.archive.ReceiptPdfManager
 import com.milanstevic.garanzia.data.local.ReceiptWithDetails
@@ -222,6 +223,24 @@ class ReceiptMirrorManager @Inject constructor(
                 .map { page ->
                     page to "pagina_${(page.pageIndex + 1).toString().padStart(2, '0')}.jpg"
                 }
+            val expectedAttachments = details.attachments
+                .sortedBy { it.createdAtEpochMs }
+                .map { attachment ->
+                    attachment to attachmentFileName(
+                        id = attachment.id,
+                        category = attachment.category,
+                        mimeType = attachment.mimeType,
+                        originalName = attachment.originalName,
+                    )
+                }
+            val existingAttachmentNames = receiptDirectory
+                .listFiles()
+                .mapNotNull { it.name }
+                .filter { it.startsWith(ATTACHMENT_PREFIX) }
+                .toSet()
+            val expectedAttachmentNames = expectedAttachments
+                .map { (_, fileName) -> fileName }
+                .toSet()
 
             val complete =
                 receiptDirectory.findFile(COMPLETE_FILE)?.isFile == true &&
@@ -230,6 +249,10 @@ class ReceiptMirrorManager @Inject constructor(
                     expectedPages.all { (_, fileName) ->
                         receiptDirectory.findFile(fileName)?.isFile == true
                     } &&
+                    expectedAttachments.all { (_, fileName) ->
+                        receiptDirectory.findFile(fileName)?.isFile == true
+                    } &&
+                    existingAttachmentNames == expectedAttachmentNames &&
                     (
                         details.receipt.rawOcrText.isNullOrBlank() ||
                             receiptDirectory.findFile(OCR_FILE)?.isFile == true
@@ -244,6 +267,15 @@ class ReceiptMirrorManager @Inject constructor(
                         directory = receiptDirectory,
                         displayName = fileName,
                         mimeType = "image/jpeg",
+                    )
+                }
+
+                expectedAttachments.forEach { (attachment, fileName) ->
+                    copyUriIntoDirectory(
+                        sourceUri = Uri.parse(attachment.localUri),
+                        directory = receiptDirectory,
+                        displayName = fileName,
+                        mimeType = attachment.mimeType,
                     )
                 }
 
@@ -277,6 +309,7 @@ class ReceiptMirrorManager @Inject constructor(
                     text =
                         "receiptId=${details.receipt.id}\n" +
                             "pages=${expectedPages.size}\n" +
+                            "attachments=${expectedAttachments.size}\n" +
                             "completed=true\n",
                 )
             }
@@ -399,6 +432,7 @@ class ReceiptMirrorManager @Inject constructor(
             val name = file.name.orEmpty()
             if (
                 name.startsWith(PAGE_PREFIX) ||
+                name.startsWith(ATTACHMENT_PREFIX) ||
                 name == SUMMARY_FILE ||
                 name == OCR_FILE ||
                 name == PDF_FILE ||
@@ -460,10 +494,36 @@ class ReceiptMirrorManager @Inject constructor(
                     }
                     appendLine()
                 }
+
+            if (details.attachments.isNotEmpty()) {
+                appendLine()
+                appendLine("Allegati prodotto: ${details.attachments.size}")
+            }
         }
+
+    private fun attachmentFileName(
+        id: Long,
+        category: String,
+        mimeType: String,
+        originalName: String?,
+    ): String {
+        val extension =
+            MimeTypeMap.getSingleton()
+                .getExtensionFromMimeType(mimeType)
+                ?.lowercase()
+                ?.takeIf { it.length in 2..5 && it.all(Char::isLetterOrDigit) }
+                ?: originalName
+                    ?.substringAfterLast('.', missingDelimiterValue = "")
+                    ?.lowercase()
+                    ?.takeIf { it.length in 2..5 && it.all(Char::isLetterOrDigit) }
+                ?: "jpg"
+        val safeCategory = sanitizeName(category).take(24).ifBlank { "altro" }
+        return "${ATTACHMENT_PREFIX}${id}_${safeCategory}.$extension"
+    }
 
     private companion object {
         const val PAGE_PREFIX = "pagina_"
+        const val ATTACHMENT_PREFIX = "allegato_"
         const val SUMMARY_FILE = "dati_scontrino.txt"
         const val OCR_FILE = "ocr_originale.txt"
         const val PDF_FILE = "scontrino.pdf"
