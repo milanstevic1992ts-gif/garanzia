@@ -3,7 +3,7 @@
 Archivio Android offline-first per scontrini e garanzie.
 
 ## Stato progetto
-Fase 11 — motore garanzie e notifiche integrato (durata, scadenza, stato, preavviso e controllo periodico; build release prevista in Fase 15).
+Fase 12 — backup e ripristino locale integrati (ZIP versionato, checksum, staging e ripristino atomico; build release prevista in Fase 15).
 
 ## Principi
 - Android nativo: Kotlin + Jetpack Compose + Material 3
@@ -137,7 +137,28 @@ Fase 11 — motore garanzie e notifiche integrato (durata, scadenza, stato, prea
    - dati garanzia preservati quando lo scontrino viene modificato
    - migrazione Room `2 → 3` non distruttiva
    - test unitari del calcolo scadenza e test strumentale della migrazione
-12. Backup / ripristino locale
+12. ✅ Backup / ripristino locale
+   - esportazione manuale tramite selettore file Android in un unico ZIP
+   - manifest JSON versionato con versione formato e schema database
+   - backup completo di scontrini, prodotti, OCR, garanzie e impostazioni di notifica
+   - immagini originali incluse nel pacchetto senza rigenerarle
+   - SHA-256 e dimensione registrati per ogni pagina originale
+   - marcatore finale obbligatorio per riconoscere pacchetti incompleti
+   - scrittura prima su file temporaneo e solo dopo sulla destinazione scelta
+   - anteprima del backup prima del ripristino con conteggio scontrini, prodotti e pagine
+   - conferma esplicita prima di sostituire l'archivio locale
+   - estrazione in staging prima di modificare database o originali
+   - protezione da path traversal, file duplicati e ZIP anomali
+   - limiti di sicurezza su numero scontrini, pagine, dimensione singola e dimensione totale
+   - verifica completa dei checksum prima di toccare l'archivio corrente
+   - sostituzione dell'archivio Room in una singola transazione
+   - conservazione degli ID di prodotti e pagine per mantenere intatte le garanzie
+   - rollback: se il database non accetta il ripristino, i nuovi originali vengono rimossi
+   - pulizia degli originali precedenti solo dopo il successo della transazione
+   - invalidazione cache PDF dopo il ripristino
+   - riavvio controllo notifiche garanzia e sincronizzazione esterna dopo il ripristino
+   - test strumentali su round-trip manifest, ripristino reale Room e rifiuto di ZIP manomesso
+   - le autorizzazioni alle cartelle Telefono/Drive restano configurazioni del dispositivo e non vengono trasferite nel backup
 13. Sicurezza
 14. Banco prova OCR italiano
 15. Build release e APK firmata
