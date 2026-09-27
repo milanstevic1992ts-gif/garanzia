@@ -2,6 +2,8 @@ package com.milanstevic.garanzia.product
 
 import com.milanstevic.garanzia.data.local.ReceiptProductEntity
 import com.milanstevic.garanzia.data.local.ReceiptWithDetails
+import com.milanstevic.garanzia.warranty.WarrantyEngine
+import com.milanstevic.garanzia.warranty.WarrantySnapshot
 
 data class ProductDetailData(
     val receiptId: String,
@@ -20,6 +22,10 @@ data class ProductDetailData(
     val vatNumber: String?,
     val paymentMethod: String?,
     val pageCount: Int,
+    val warrantyMonths: Int?,
+    val warrantyReminderDays: Int,
+    val warrantyNotificationsEnabled: Boolean,
+    val warranty: WarrantySnapshot?,
 )
 
 object ProductDetailMapper {
@@ -57,6 +63,16 @@ object ProductDetailMapper {
             vatNumber = details.receipt.vatNumber,
             paymentMethod = details.receipt.paymentMethod,
             pageCount = details.pages.size,
+            warrantyMonths = product.warrantyMonths,
+            warrantyReminderDays = product.warrantyReminderDays,
+            warrantyNotificationsEnabled = product.warrantyNotificationsEnabled,
+            warranty = runCatching {
+                WarrantyEngine.calculate(
+                    purchaseDateIso = details.receipt.purchaseDate,
+                    warrantyMonths = product.warrantyMonths,
+                    reminderDays = product.warrantyReminderDays,
+                )
+            }.getOrNull(),
         )
     }
 }
