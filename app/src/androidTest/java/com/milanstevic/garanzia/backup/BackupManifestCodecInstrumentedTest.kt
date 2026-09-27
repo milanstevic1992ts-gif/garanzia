@@ -15,8 +15,8 @@ class BackupManifestCodecInstrumentedTest {
     fun manifestRoundTripPreservesReceiptProductWarrantyAndPageMetadata() {
         val manifest = BackupManifest(
             format = "garanzia-backup",
-            formatVersion = 1,
-            databaseSchemaVersion = 3,
+            formatVersion = 2,
+            databaseSchemaVersion = 4,
             createdAtEpochMs = 123456789L,
             receipts = listOf(
                 BackupReceiptRecord(
@@ -59,6 +59,21 @@ class BackupManifestCodecInstrumentedTest {
                             sha256 = "a".repeat(64),
                         ),
                     ),
+                    attachments = listOf(
+                        BackupAttachmentRecord(
+                            id = 31L,
+                            receiptId = "receipt-1",
+                            productId = 11L,
+                            category = "payment",
+                            mimeType = "image/png",
+                            originalName = "pagamento.png",
+                            note = "Screenshot carta",
+                            createdAtEpochMs = 456L,
+                            entryName = "attachments/receipt-1/11/attachment_31.bin",
+                            sizeBytes = 222L,
+                            sha256 = "c".repeat(64),
+                        ),
+                    ),
                 ),
             ),
         )
@@ -68,11 +83,12 @@ class BackupManifestCodecInstrumentedTest {
         )
 
         assertEquals("garanzia-backup", decoded.format)
-        assertEquals(1, decoded.formatVersion)
-        assertEquals(3, decoded.databaseSchemaVersion)
+        assertEquals(2, decoded.formatVersion)
+        assertEquals(4, decoded.databaseSchemaVersion)
         assertEquals(1, decoded.receiptCount)
         assertEquals(1, decoded.productCount)
         assertEquals(1, decoded.pageCount)
+        assertEquals(1, decoded.attachmentCount)
 
         val record = decoded.receipts.single()
         assertEquals("FERRAMENTA ROSSI", record.receipt.merchant)
@@ -86,6 +102,10 @@ class BackupManifestCodecInstrumentedTest {
         )
         assertEquals("originals/receipt-1/page_0.jpg", record.pages.single().entryName)
         assertEquals("a".repeat(64), record.pages.single().sha256)
+        assertEquals("payment", record.attachments.single().category)
+        assertEquals("image/png", record.attachments.single().mimeType)
+        assertEquals("Screenshot carta", record.attachments.single().note)
+        assertEquals("c".repeat(64), record.attachments.single().sha256)
     }
 
     @Test
