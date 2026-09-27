@@ -3,7 +3,7 @@
 Archivio Android offline-first per scontrini e garanzie.
 
 ## Stato progetto
-Fase 14 — banco prova OCR italiano integrato (corpus automatico, quality gate e report CI; build release prevista in Fase 15).
+Fase 15 — release Android v1.0.0 completata e firmata con identità GE360 stabile.
 
 ## Principi
 - Android nativo: Kotlin + Jetpack Compose + Material 3
@@ -178,7 +178,19 @@ Fase 14 — banco prova OCR italiano integrato (corpus automatico, quality gate 
    - regressioni corrette aggiunte permanentemente al corpus
    - distinzione esplicita tra benchmark testo OCR → dati e test fotografico PaddleOCR
    - scontrini reali con dati personali non vengono inseriti nel repository
-15. Build release e APK firmata
+15. ✅ Build release e APK firmata
+   - release `1.0.0` con `versionCode 5`
+   - package Android invariato: `com.milanstevic.garanzia`
+   - build release non-debug prodotta automaticamente dalla CI
+   - unit test, banco prova OCR italiano e Android lint obbligatori prima della build
+   - suite strumentale Android verificata su emulatore
+   - APK finale allineato con `zipalign`
+   - firma Android permanente GE360 applicata fuori dalla repository
+   - APK Signature Scheme v2 e v3 verificati
+   - un solo signer e fingerprint GE360 verificata
+   - SHA-256 del file finale generato
+   - keystore e credenziali di firma esclusi dalla repository
+   - procedura di verifica release documentata in `docs/RELEASE_ANDROID.md`
 
 
 ## Restyling UI
