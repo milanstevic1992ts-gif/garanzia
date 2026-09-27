@@ -15,4 +15,9 @@ data class ReceiptWithDetails(
         entityColumn = "receiptId",
     )
     val pages: List<ReceiptPageEntity>,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "receiptId",
+    )
+    val attachments: List<ProductAttachmentEntity> = emptyList(),
 )
