@@ -82,3 +82,11 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 }
+
+
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    systemProperty(
+        "ocrBenchmarkReportDir",
+        layout.buildDirectory.dir("reports/ocr-benchmark").get().asFile.absolutePath,
+    )
+}
