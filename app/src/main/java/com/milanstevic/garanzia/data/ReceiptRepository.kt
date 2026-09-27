@@ -286,6 +286,10 @@ class ReceiptRepository @Inject constructor(
         )
     }
 
+    suspend fun replaceArchive(receipts: List<ReceiptWithDetails>) {
+        receiptDao.replaceArchive(receipts)
+    }
+
     suspend fun deleteReceipt(receiptId: String) {
         receiptDao.deleteReceiptGraph(receiptId)
     }
