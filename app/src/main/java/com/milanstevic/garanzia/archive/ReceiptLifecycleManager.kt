@@ -3,6 +3,7 @@ package com.milanstevic.garanzia.archive
 import android.net.Uri
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
 import com.milanstevic.garanzia.data.ReceiptRepository
+import com.milanstevic.garanzia.product.attachment.ProductAttachmentStore
 import com.milanstevic.garanzia.scanner.ReceiptFileStore
 import com.milanstevic.garanzia.storage.ReceiptMirrorManager
 import javax.inject.Inject
@@ -19,6 +20,7 @@ data class ReceiptMutationResult(
 class ReceiptLifecycleManager @Inject constructor(
     private val repository: ReceiptRepository,
     private val fileStore: ReceiptFileStore,
+    private val productAttachmentStore: ProductAttachmentStore,
     private val pdfManager: ReceiptPdfManager,
     private val mirrorManager: ReceiptMirrorManager,
 ) {
@@ -35,17 +37,33 @@ class ReceiptLifecycleManager @Inject constructor(
             draft = draft,
         )
 
+        val after = requireNotNull(repository.getReceipt(receiptId)) {
+            "Scontrino non trovato dopo l'aggiornamento"
+        }
+        val retainedAttachmentIds = after.attachments.map { it.id }.toSet()
+        val removedAttachmentFileFailures = before.attachments
+            .filterNot { it.id in retainedAttachmentIds }
+            .count { attachment ->
+                !productAttachmentStore.delete(Uri.parse(attachment.localUri))
+            }
+
         val externalCleanup = mirrorManager.deleteReceiptCopies(before)
         val failedExternal = externalCleanup.configuredFailures.size
 
+        val warnings = buildList {
+            if (removedAttachmentFileFailures > 0) {
+                add("$removedAttachmentFileFailures file allegato locali non sono stati eliminati")
+            }
+            if (failedExternal > 0) {
+                add(
+                    "$failedExternal vecchie copie esterne verranno eliminate automaticamente appena disponibili.",
+                )
+            }
+        }
+
         ReceiptMutationResult(
             success = true,
-            warning =
-                if (failedExternal > 0) {
-                    "$failedExternal vecchie copie esterne verranno eliminate automaticamente appena disponibili."
-                } else {
-                    null
-                },
+            warning = warnings.takeIf { it.isNotEmpty() }?.joinToString(" · "),
         )
     }
 
@@ -61,6 +79,9 @@ class ReceiptLifecycleManager @Inject constructor(
         val localFailures = fileStore.deleteOriginals(
             details.pages.map { Uri.parse(it.originalUri) },
         )
+        val attachmentFailures = details.attachments.count { attachment ->
+            !productAttachmentStore.delete(Uri.parse(attachment.localUri))
+        }
         val pdfDeleted = pdfManager.deleteCachedPdf(receiptId)
         val externalCleanup = mirrorManager.deleteReceiptCopies(details)
         val externalFailures = externalCleanup.configuredFailures.size
@@ -68,6 +89,9 @@ class ReceiptLifecycleManager @Inject constructor(
         val warnings = buildList {
             if (localFailures > 0) {
                 add("$localFailures file originali locali non sono stati eliminati")
+            }
+            if (attachmentFailures > 0) {
+                add("$attachmentFailures file allegato locali non sono stati eliminati")
             }
             if (!pdfDeleted) {
                 add("la cache PDF non è stata eliminata completamente")
