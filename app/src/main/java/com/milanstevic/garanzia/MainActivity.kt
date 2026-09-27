@@ -33,6 +33,8 @@ import com.milanstevic.garanzia.archive.ReceiptArchiveScreen
 import com.milanstevic.garanzia.archive.ReceiptLifecycleManager
 import com.milanstevic.garanzia.archive.ReceiptPdfManager
 import com.milanstevic.garanzia.archive.ReceiptPdfViewerScreen
+import com.milanstevic.garanzia.backup.BackupPreview
+import com.milanstevic.garanzia.backup.LocalBackupManager
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationScreen
 import com.milanstevic.garanzia.data.ReceiptArchiveState
@@ -65,6 +67,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -97,6 +101,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var diagnosticsManager: DiagnosticsManager
 
+    @Inject
+    lateinit var localBackupManager: LocalBackupManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -113,6 +120,7 @@ class MainActivity : ComponentActivity() {
                     receiptPdfManager = receiptPdfManager,
                     receiptLifecycleManager = receiptLifecycleManager,
                     diagnosticsManager = diagnosticsManager,
+                    localBackupManager = localBackupManager,
                 )
             }
         }
@@ -145,6 +153,7 @@ private fun GaranziaApp(
     receiptPdfManager: ReceiptPdfManager,
     receiptLifecycleManager: ReceiptLifecycleManager,
     diagnosticsManager: DiagnosticsManager,
+    localBackupManager: LocalBackupManager,
 ) {
     val scope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(AppScreen.HOME) }
@@ -171,6 +180,10 @@ private fun GaranziaApp(
     val storageState by storageSettings.state.collectAsState()
     var storageSyncInProgress by remember { mutableStateOf(false) }
     var storageMessage by remember { mutableStateOf<String?>(null) }
+    var backupInProgress by remember { mutableStateOf(false) }
+    var backupMessage by remember { mutableStateOf<String?>(null) }
+    var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingRestorePreview by remember { mutableStateOf<BackupPreview?>(null) }
     var pdfFile by remember { mutableStateOf<File?>(null) }
     var pdfLoading by remember { mutableStateOf(false) }
     var pdfError by remember { mutableStateOf<String?>(null) }
@@ -197,6 +210,50 @@ private fun GaranziaApp(
         if (!granted) {
             warrantyMessage =
                 "Garanzia salvata. Le notifiche restano disattivate da Android finché non concedi il permesso."
+        }
+    }
+
+    val createBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        if (uri != null && !backupInProgress) {
+            backupInProgress = true
+            backupMessage = null
+            scope.launch {
+                try {
+                    val summary = localBackupManager.createBackup(uri)
+                    backupMessage =
+                        "Backup creato: ${summary.receiptCount} scontrini, " +
+                            "${summary.productCount} prodotti e " +
+                            "${summary.pageCount} pagine originali."
+                } catch (t: Throwable) {
+                    backupMessage = t.message ?: "Impossibile creare il backup"
+                } finally {
+                    backupInProgress = false
+                }
+            }
+        }
+    }
+
+    val restoreBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null && !backupInProgress) {
+            backupInProgress = true
+            backupMessage = null
+            pendingRestoreUri = uri
+            pendingRestorePreview = null
+
+            scope.launch {
+                try {
+                    pendingRestorePreview = localBackupManager.inspectBackup(uri)
+                } catch (t: Throwable) {
+                    pendingRestoreUri = null
+                    backupMessage = t.message ?: "Backup non valido"
+                } finally {
+                    backupInProgress = false
+                }
+            }
         }
     }
 
@@ -864,6 +921,63 @@ private fun GaranziaApp(
             state = storageState,
             syncInProgress = storageSyncInProgress,
             syncMessage = storageMessage,
+            backupInProgress = backupInProgress,
+            backupMessage = backupMessage,
+            restorePreview = pendingRestorePreview,
+            onCreateBackup = {
+                backupMessage = null
+                val stamp = LocalDateTime.now().format(
+                    DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"),
+                )
+                createBackupLauncher.launch("garanzia_backup_$stamp.zip")
+            },
+            onSelectRestore = {
+                backupMessage = null
+                restoreBackupLauncher.launch(
+                    arrayOf(
+                        "application/zip",
+                        "application/x-zip-compressed",
+                        "application/octet-stream",
+                    ),
+                )
+            },
+            onConfirmRestore = {
+                val restoreUri = pendingRestoreUri
+                if (restoreUri != null && !backupInProgress) {
+                    backupInProgress = true
+                    backupMessage = null
+
+                    scope.launch {
+                        try {
+                            val summary = localBackupManager.restoreBackup(restoreUri)
+                            pendingRestoreUri = null
+                            pendingRestorePreview = null
+                            selectedArchiveReceiptId = null
+                            selectedProductId = null
+                            archiveFilters = ArchiveFilterState()
+                            archiveSearchIds = null
+
+                            BackgroundSyncScheduler.enqueueNow(activity)
+                            WarrantyNotificationScheduler.enqueueNow(activity)
+
+                            backupMessage =
+                                "Ripristino completato: ${summary.receiptCount} scontrini, " +
+                                    "${summary.productCount} prodotti e " +
+                                    "${summary.pageCount} pagine originali."
+                        } catch (t: Throwable) {
+                            backupMessage = t.message ?: "Impossibile ripristinare il backup"
+                        } finally {
+                            backupInProgress = false
+                        }
+                    }
+                }
+            },
+            onCancelRestore = {
+                if (!backupInProgress) {
+                    pendingRestoreUri = null
+                    pendingRestorePreview = null
+                }
+            },
             onChoosePhone = { phoneFolderLauncher.launch(null) },
             onChooseDrive = { driveFolderLauncher.launch(null) },
             onClearPhone = {
