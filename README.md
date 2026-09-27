@@ -3,7 +3,7 @@
 Archivio Android offline-first per scontrini e garanzie.
 
 ## Stato progetto
-Fase 12 — backup e ripristino locale integrati (ZIP versionato, checksum, staging e ripristino atomico; build release prevista in Fase 15).
+Fase 14 — banco prova OCR italiano integrato (corpus automatico, quality gate e report CI; build release prevista in Fase 15).
 
 ## Principi
 - Android nativo: Kotlin + Jetpack Compose + Material 3
@@ -159,8 +159,25 @@ Fase 12 — backup e ripristino locale integrati (ZIP versionato, checksum, stag
    - riavvio controllo notifiche garanzia e sincronizzazione esterna dopo il ripristino
    - test strumentali su round-trip manifest, ripristino reale Room e rifiuto di ZIP manomesso
    - le autorizzazioni alle cartelle Telefono/Drive restano configurazioni del dispositivo e non vengono trasferite nel backup
-13. Sicurezza
-14. Banco prova OCR italiano
+13. ⏭️ Sicurezza — saltata
+14. ✅ Banco prova OCR italiano
+   - corpus deterministico di 16 scenari OCR italiani realistici
+   - esercente, data/ora, totale, valuta, P.IVA, documento e pagamento verificati
+   - benchmark prodotti con precision e recall
+   - quantità `x prezzo` e quantità in `PZ`
+   - importi italiani con virgola e separatore delle migliaia
+   - scontrini multipagina
+   - rumore da indirizzo, cassa e operatore
+   - carta fedeltà esclusa dai prodotti e dal pagamento
+   - subtotale e IVA non promossi a totale
+   - confidence OCR bassa trattata in modo conservativo
+   - errori OCR comuni come `T0TALE` esclusi dai falsi prodotti senza inventare il totale
+   - quality gate CI: almeno 95% su esercente, data, totale, pagamento e prodotti
+   - decisione `Da verificare` richiesta al 100% nei casi previsti
+   - report TXT e JSON pubblicati come artefatto GitHub Actions
+   - regressioni corrette aggiunte permanentemente al corpus
+   - distinzione esplicita tra benchmark testo OCR → dati e test fotografico PaddleOCR
+   - scontrini reali con dati personali non vengono inseriti nel repository
 15. Build release e APK firmata
 
 
