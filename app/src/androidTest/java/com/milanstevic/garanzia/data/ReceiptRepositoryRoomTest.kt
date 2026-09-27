@@ -8,6 +8,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.milanstevic.garanzia.confirmation.ProductConfirmationDraft
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
 import com.milanstevic.garanzia.data.local.GaranziaDatabase
+import com.milanstevic.garanzia.data.local.ReceiptEntity
+import com.milanstevic.garanzia.data.local.ReceiptPageEntity
+import com.milanstevic.garanzia.data.local.ReceiptProductEntity
+import com.milanstevic.garanzia.data.local.ReceiptWithDetails
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -63,6 +67,59 @@ class ReceiptRepositoryRoomTest {
         assertEquals("TRAPANO BOSCH", stored.products.minBy { it.position }.name)
         assertEquals(2, stored.pages.size)
         assertEquals("file:///receipt/page1.jpg", stored.pages.minBy { it.pageIndex }.originalUri)
+    }
+
+    @Test
+    fun replaceArchiveRestoresExactProductWarrantyAndPageIds() = runBlocking {
+        val restored = ReceiptWithDetails(
+            receipt = ReceiptEntity(
+                id = "restored-receipt",
+                merchant = "NEGOZIO TEST",
+                purchaseDate = "2026-01-15",
+                purchaseTime = null,
+                totalAmount = "89.90",
+                currency = "EUR",
+                vatNumber = null,
+                documentNumber = "R-1",
+                paymentMethod = "Carta",
+                rawOcrText = "PRODOTTO TEST",
+                confirmedAtEpochMs = 55L,
+            ),
+            products = listOf(
+                ReceiptProductEntity(
+                    id = 77L,
+                    receiptId = "restored-receipt",
+                    position = 0,
+                    name = "PRODOTTO TEST",
+                    quantity = "1",
+                    unitPrice = "89.90",
+                    lineTotal = "89.90",
+                    sourceConfidence = 0.98f,
+                    warrantyMonths = 24,
+                    warrantyReminderDays = 45,
+                    warrantyNotificationsEnabled = true,
+                    warrantyLastNotificationKey = "expiring:2028-01-15",
+                ),
+            ),
+            pages = listOf(
+                ReceiptPageEntity(
+                    id = 88L,
+                    receiptId = "restored-receipt",
+                    pageIndex = 0,
+                    originalUri = "file:///restored/page.jpg",
+                ),
+            ),
+        )
+
+        repository.replaceArchive(listOf(restored))
+
+        val stored = requireNotNull(repository.getReceipt("restored-receipt"))
+        assertEquals(77L, stored.products.single().id)
+        assertEquals(24, stored.products.single().warrantyMonths)
+        assertEquals(45, stored.products.single().warrantyReminderDays)
+        assertEquals("expiring:2028-01-15", stored.products.single().warrantyLastNotificationKey)
+        assertEquals(88L, stored.pages.single().id)
+        assertEquals("file:///restored/page.jpg", stored.pages.single().originalUri)
     }
 
     @Test
