@@ -13,6 +13,7 @@ Fase 11 — motore garanzie e notifiche integrato (durata, scadenza, stato, prea
 - Scontrino originale sempre conservato
 - OCR e interpretazione eseguiti localmente
 - Nessun backend nella prima versione
+- Barcode / EAN escluso dalla roadmap: non necessario per il flusso dell'app
 - I dati mancanti non vengono inventati: se un campo non è ricavabile dal testo OCR resta vuoto
 - Ogni campo interpretato conserva confidence, livello e riga OCR di evidenza
 - I valori sotto la soglia minima di affidabilità vengono scartati
