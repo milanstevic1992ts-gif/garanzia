@@ -38,7 +38,10 @@ class DatabaseMigration2To3InstrumentedTest {
             GaranziaDatabase::class.java,
             TEST_DATABASE,
         )
-            .addMigrations(DatabaseMigrations.MIGRATION_2_3)
+            .addMigrations(
+                DatabaseMigrations.MIGRATION_2_3,
+                DatabaseMigrations.MIGRATION_3_4,
+            )
             .build()
 
         try {
@@ -54,7 +57,13 @@ class DatabaseMigration2To3InstrumentedTest {
             assertEquals(30, product.warrantyReminderDays)
             assertTrue(product.warrantyNotificationsEnabled)
             assertNull(product.warrantyLastNotificationKey)
-            assertEquals(3, database.openHelper.writableDatabase.version)
+            assertTrue(
+                database.receiptDao()
+                    .getReceipt(RECEIPT_ID)
+                    ?.attachments
+                    ?.isEmpty() == true,
+            )
+            assertEquals(4, database.openHelper.writableDatabase.version)
         } finally {
             database.close()
         }
