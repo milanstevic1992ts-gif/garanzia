@@ -143,7 +143,9 @@ class LocalBackupManager @Inject constructor(
 
             (before.map { it.receipt.id } + restored.map { it.receipt.id })
                 .distinct()
-                .forEach(pdfManager::deleteCachedPdf)
+                .forEach { receiptId ->
+                    pdfManager.deleteCachedPdf(receiptId)
+                }
 
             RestoreSummary(
                 receiptCount = restored.size,
@@ -398,6 +400,13 @@ class LocalBackupManager @Inject constructor(
             }
             require(record.receipt.totalAmount.isNotBlank()) {
                 "Totale mancante nel backup"
+            }
+
+            require(record.products.isNotEmpty()) {
+                "Uno scontrino nel backup non contiene prodotti"
+            }
+            require(record.pages.isNotEmpty()) {
+                "Uno scontrino nel backup non contiene pagine originali"
             }
 
             val positions = mutableSetOf<Int>()
