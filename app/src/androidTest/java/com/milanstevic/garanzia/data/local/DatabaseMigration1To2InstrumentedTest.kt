@@ -38,7 +38,10 @@ class DatabaseMigration1To2InstrumentedTest {
             GaranziaDatabase::class.java,
             TEST_DATABASE,
         )
-            .addMigrations(DatabaseMigrations.MIGRATION_1_2)
+            .addMigrations(
+                DatabaseMigrations.MIGRATION_1_2,
+                DatabaseMigrations.MIGRATION_2_3,
+            )
             .build()
 
         try {
@@ -77,7 +80,13 @@ class DatabaseMigration1To2InstrumentedTest {
                 dao.searchReceiptIds(requireNotNull(ReceiptFtsQuery.build("24/09/2026"))),
             )
 
-            assertTrue(database.openHelper.writableDatabase.version == 2)
+            val product = migrated.products.single()
+            assertEquals(null, product.warrantyMonths)
+            assertEquals(30, product.warrantyReminderDays)
+            assertTrue(product.warrantyNotificationsEnabled)
+            assertEquals(null, product.warrantyLastNotificationKey)
+
+            assertTrue(database.openHelper.writableDatabase.version == 3)
         } finally {
             database.close()
         }
