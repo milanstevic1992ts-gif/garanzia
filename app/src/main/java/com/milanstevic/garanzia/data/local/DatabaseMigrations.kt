@@ -56,7 +56,26 @@ object DatabaseMigrations {
             }
         }
 
+    val MIGRATION_2_3: Migration =
+        object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE receipt_products ADD COLUMN warrantyMonths INTEGER",
+                )
+                db.execSQL(
+                    "ALTER TABLE receipt_products ADD COLUMN warrantyReminderDays INTEGER NOT NULL DEFAULT 30",
+                )
+                db.execSQL(
+                    "ALTER TABLE receipt_products ADD COLUMN warrantyNotificationsEnabled INTEGER NOT NULL DEFAULT 1",
+                )
+                db.execSQL(
+                    "ALTER TABLE receipt_products ADD COLUMN warrantyLastNotificationKey TEXT",
+                )
+            }
+        }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
+        MIGRATION_2_3,
     )
 }
