@@ -12,15 +12,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.milanstevic.garanzia.backup.BackupPreview
 import com.milanstevic.garanzia.ui.components.GaranziaHeader
 import com.milanstevic.garanzia.ui.components.InfoStrip
 import com.milanstevic.garanzia.ui.components.PremiumBottomBar
@@ -33,6 +36,13 @@ fun StorageSettingsScreen(
     state: StorageSettingsState,
     syncInProgress: Boolean,
     syncMessage: String?,
+    backupInProgress: Boolean,
+    backupMessage: String?,
+    restorePreview: BackupPreview?,
+    onCreateBackup: () -> Unit,
+    onSelectRestore: () -> Unit,
+    onConfirmRestore: () -> Unit,
+    onCancelRestore: () -> Unit,
     onChoosePhone: () -> Unit,
     onChooseDrive: () -> Unit,
     onClearPhone: () -> Unit,
@@ -133,6 +143,49 @@ fun StorageSettingsScreen(
             }
 
             SectionCard(
+                title = "Backup completo locale",
+                subtitle = "Esporta o ripristina l'intero archivio: scontrini, prodotti, garanzie e immagini originali.",
+            ) {
+                Button(
+                    onClick = onCreateBackup,
+                    enabled = !backupInProgress,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        if (backupInProgress) {
+                            "Operazione in corso…"
+                        } else {
+                            "Crea backup completo"
+                        },
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onSelectRestore,
+                    enabled = !backupInProgress,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Ripristina da backup")
+                }
+
+                backupMessage?.let {
+                    InfoStrip(
+                        text = it,
+                        positive =
+                            !it.contains("erro", ignoreCase = true) &&
+                                !it.contains("non valido", ignoreCase = true) &&
+                                !it.contains("impossibile", ignoreCase = true),
+                    )
+                }
+
+                Text(
+                    text = "Il backup è un unico file ZIP verificato. Il ripristino sostituisce l'archivio interno solo dopo aver controllato struttura e checksum.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            SectionCard(
                 title = "Diagnostica",
                 subtitle = "Controlla OCR, database, originali, spazio libero e accesso alle cartelle.",
             ) {
@@ -150,6 +203,37 @@ fun StorageSettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+
+    if (restorePreview != null) {
+        AlertDialog(
+            onDismissRequest = onCancelRestore,
+            title = { Text("Ripristinare questo backup?") },
+            text = {
+                Text(
+                    "Contiene ${restorePreview.receiptCount} scontrini, " +
+                        "${restorePreview.productCount} prodotti e " +
+                        "${restorePreview.pageCount} pagine originali.\n\n" +
+                        "L'archivio interno attuale verrà sostituito solo dopo la verifica completa del backup.",
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = onConfirmRestore,
+                    enabled = !backupInProgress,
+                ) {
+                    Text("Ripristina")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = onCancelRestore,
+                    enabled = !backupInProgress,
+                ) {
+                    Text("Annulla")
+                }
+            },
+        )
     }
 }
 
