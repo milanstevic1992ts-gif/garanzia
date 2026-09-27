@@ -5,6 +5,7 @@ import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
 import com.milanstevic.garanzia.data.local.ReceiptDao
 import com.milanstevic.garanzia.data.local.ReceiptEntity
 import com.milanstevic.garanzia.data.local.ReceiptPageEntity
+import com.milanstevic.garanzia.data.local.ProductAttachmentEntity
 import com.milanstevic.garanzia.data.local.ReceiptFtsQuery
 import com.milanstevic.garanzia.data.local.ReceiptProductEntity
 import com.milanstevic.garanzia.data.local.ReceiptSearchEntity
@@ -248,6 +249,83 @@ class ReceiptRepository @Inject constructor(
         return receiptDao
             .searchReceiptIds(ftsQuery)
             .toSet()
+    }
+
+    suspend fun getProductAttachments(
+        receiptId: String,
+        productId: Long,
+    ): List<ProductAttachmentEntity> =
+        receiptDao.getProductAttachments(
+            receiptId = receiptId,
+            productId = productId,
+        )
+
+    suspend fun addProductAttachment(
+        receiptId: String,
+        productId: Long,
+        category: String,
+        localUri: String,
+        mimeType: String,
+        originalName: String?,
+        note: String?,
+        createdAtEpochMs: Long = System.currentTimeMillis(),
+    ): ProductAttachmentEntity {
+        val details = requireNotNull(receiptDao.getReceipt(receiptId)) {
+            "Scontrino non trovato"
+        }
+        check(details.products.any { it.id == productId }) {
+            "Prodotto non trovato nello scontrino"
+        }
+
+        val entity = ProductAttachmentEntity(
+            receiptId = receiptId,
+            productId = productId,
+            category = category,
+            localUri = localUri,
+            mimeType = mimeType,
+            originalName = originalName?.trim()?.ifBlank { null },
+            note = note?.trim()?.ifBlank { null },
+            createdAtEpochMs = createdAtEpochMs,
+        )
+        val id = receiptDao.insertAttachment(entity)
+        return entity.copy(id = id)
+    }
+
+    suspend fun updateProductAttachmentNote(
+        receiptId: String,
+        productId: Long,
+        attachmentId: Long,
+        note: String?,
+    ) {
+        val updated = receiptDao.updateAttachmentNote(
+            receiptId = receiptId,
+            productId = productId,
+            attachmentId = attachmentId,
+            note = note?.trim()?.ifBlank { null },
+        )
+        check(updated == 1) { "Allegato non trovato" }
+    }
+
+    suspend fun deleteProductAttachment(
+        receiptId: String,
+        productId: Long,
+        attachmentId: Long,
+    ): ProductAttachmentEntity {
+        val attachment = receiptDao
+            .getProductAttachments(
+                receiptId = receiptId,
+                productId = productId,
+            )
+            .firstOrNull { it.id == attachmentId }
+            ?: error("Allegato non trovato")
+
+        val deleted = receiptDao.deleteAttachment(
+            receiptId = receiptId,
+            productId = productId,
+            attachmentId = attachmentId,
+        )
+        check(deleted == 1) { "Impossibile eliminare l'allegato" }
+        return attachment
     }
 
     suspend fun updateProductWarranty(
