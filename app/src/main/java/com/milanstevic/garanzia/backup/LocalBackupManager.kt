@@ -14,6 +14,7 @@ import java.io.BufferedOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
+import java.io.OutputStream
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.zip.ZipEntry
@@ -44,8 +45,7 @@ class LocalBackupManager @Inject constructor(
             )
 
             val copiedBytes = temp.inputStream().use { input ->
-                context.contentResolver.openOutputStream(targetUri, "w").use { output ->
-                    requireNotNull(output) { "Impossibile scrivere il backup" }
+                openTarget(targetUri).use { output ->
                     val copied = input.copyTo(output)
                     output.flush()
                     copied
@@ -486,6 +486,18 @@ class LocalBackupManager @Inject constructor(
                 sizeBytes = size,
                 sha256 = digest.digest().toHex(),
             )
+        }
+
+    private fun openTarget(uri: Uri): OutputStream =
+        when (uri.scheme) {
+            null, "file" -> {
+                val path = requireNotNull(uri.path) { "Percorso file non valido" }
+                File(path).outputStream()
+            }
+
+            else -> requireNotNull(context.contentResolver.openOutputStream(uri, "w")) {
+                "Impossibile scrivere il backup"
+            }
         }
 
     private fun openSource(uri: Uri): InputStream =
