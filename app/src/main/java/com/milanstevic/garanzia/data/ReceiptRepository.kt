@@ -135,6 +135,7 @@ class ReceiptRepository @Inject constructor(
         )
 
         val unmatchedExistingProducts = existing.products.toMutableList()
+        val allowPositionFallback = draft.products.size == existing.products.size
         val products = draft.products.mapIndexed { index, product ->
             val normalizedName = product.name.trim()
             val previous =
@@ -142,8 +143,12 @@ class ReceiptRepository @Inject constructor(
                     it.position == index && it.name.equals(normalizedName, ignoreCase = true)
                 } ?: unmatchedExistingProducts.firstOrNull {
                     it.name.equals(normalizedName, ignoreCase = true)
-                } ?: unmatchedExistingProducts.firstOrNull {
-                    it.position == index
+                } ?: if (allowPositionFallback) {
+                    unmatchedExistingProducts.firstOrNull {
+                        it.position == index
+                    }
+                } else {
+                    null
                 }
 
             previous?.let(unmatchedExistingProducts::remove)
