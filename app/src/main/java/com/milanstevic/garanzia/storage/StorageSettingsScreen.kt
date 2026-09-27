@@ -144,7 +144,7 @@ fun StorageSettingsScreen(
 
             SectionCard(
                 title = "Backup completo locale",
-                subtitle = "Esporta o ripristina l'intero archivio: scontrini, prodotti, garanzie e immagini originali.",
+                subtitle = "Esporta o ripristina l'intero archivio: scontrini, prodotti, garanzie, originali e foto prodotto.",
             ) {
                 Button(
                     onClick = onCreateBackup,
@@ -213,7 +213,8 @@ fun StorageSettingsScreen(
                 Text(
                     "Contiene ${restorePreview.receiptCount} scontrini, " +
                         "${restorePreview.productCount} prodotti e " +
-                        "${restorePreview.pageCount} pagine originali.\n\n" +
+                        "${restorePreview.pageCount} pagine originali e " +
+                        "${restorePreview.attachmentCount} allegati prodotto.\n\n" +
                         "L'archivio interno attuale verrà sostituito solo dopo la verifica completa del backup.",
                 )
             },

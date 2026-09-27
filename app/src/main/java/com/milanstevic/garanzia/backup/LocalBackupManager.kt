@@ -5,8 +5,11 @@ import android.net.Uri
 import com.milanstevic.garanzia.archive.ReceiptPdfManager
 import com.milanstevic.garanzia.data.ReceiptRepository
 import com.milanstevic.garanzia.data.local.GARANZIA_SCHEMA_VERSION
+import com.milanstevic.garanzia.data.local.ProductAttachmentEntity
 import com.milanstevic.garanzia.data.local.ReceiptPageEntity
 import com.milanstevic.garanzia.data.local.ReceiptWithDetails
+import com.milanstevic.garanzia.product.attachment.ProductAttachmentCategory
+import com.milanstevic.garanzia.product.attachment.ProductAttachmentStore
 import com.milanstevic.garanzia.scanner.ReceiptFileStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.BufferedInputStream
@@ -30,6 +33,7 @@ class LocalBackupManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: ReceiptRepository,
     private val fileStore: ReceiptFileStore,
+    private val productAttachmentStore: ProductAttachmentStore,
     private val pdfManager: ReceiptPdfManager,
 ) {
     suspend fun createBackup(targetUri: Uri): BackupSummary = withContext(Dispatchers.IO) {
@@ -61,6 +65,7 @@ class LocalBackupManager @Inject constructor(
                 productCount = manifest.productCount,
                 pageCount = manifest.pageCount,
                 sizeBytes = copiedBytes,
+                attachmentCount = manifest.attachmentCount,
             )
         } finally {
             temp.delete()
@@ -87,6 +92,7 @@ class LocalBackupManager @Inject constructor(
                     receiptCount = manifest.receiptCount,
                     productCount = manifest.productCount,
                     pageCount = manifest.pageCount,
+                    attachmentCount = manifest.attachmentCount,
                 )
             }
         }
@@ -97,7 +103,8 @@ class LocalBackupManager @Inject constructor(
             require(mkdirs()) { "Impossibile preparare il ripristino" }
         }
 
-        val importedUris = mutableListOf<Uri>()
+        val importedOriginalUris = mutableListOf<Uri>()
+        val importedAttachmentUris = mutableListOf<Uri>()
 
         try {
             val extracted = extractAndValidate(sourceUri, staging)
@@ -111,7 +118,7 @@ class LocalBackupManager @Inject constructor(
                             "Pagina mancante nel backup"
                         }
                         val newUri = stagedFile.inputStream().use(fileStore::importRestoredOriginal)
-                        importedUris += newUri
+                        importedOriginalUris += newUri
 
                         ReceiptPageEntity(
                             id = page.id,
@@ -121,17 +128,49 @@ class LocalBackupManager @Inject constructor(
                         )
                     }
 
+                val restoredAttachments = record.attachments
+                    .sortedBy { it.createdAtEpochMs }
+                    .map { attachment ->
+                        val stagedFile = requireNotNull(extracted.files[attachment.entryName]) {
+                            "Allegato mancante nel backup"
+                        }
+                        val stored = stagedFile.inputStream().use { input ->
+                            productAttachmentStore.importRestoredAttachment(
+                                input = input,
+                                mimeType = attachment.mimeType,
+                                originalName = attachment.originalName,
+                            )
+                        }
+                        importedAttachmentUris += stored.uri
+
+                        ProductAttachmentEntity(
+                            id = attachment.id,
+                            receiptId = attachment.receiptId,
+                            productId = attachment.productId,
+                            category = attachment.category,
+                            localUri = stored.uri.toString(),
+                            mimeType = attachment.mimeType,
+                            originalName = attachment.originalName,
+                            note = attachment.note,
+                            createdAtEpochMs = attachment.createdAtEpochMs,
+                        )
+                    }
+
                 ReceiptWithDetails(
                     receipt = record.receipt,
                     products = record.products.sortedBy { it.position },
                     pages = restoredPages,
+                    attachments = restoredAttachments,
                 )
             }
 
             try {
                 repository.replaceArchive(restored)
             } catch (t: Throwable) {
-                fileStore.deleteOriginals(importedUris)
+                fileStore.deleteOriginals(importedOriginalUris)
+                importedAttachmentUris.forEach { uri ->
+                    productAttachmentStore.delete(uri)
+                }
                 throw t
             }
 
@@ -140,6 +179,11 @@ class LocalBackupManager @Inject constructor(
                     details.pages.map { Uri.parse(it.originalUri) }
                 },
             )
+            before
+                .flatMap { it.attachments }
+                .forEach { attachment ->
+                    productAttachmentStore.delete(Uri.parse(attachment.localUri))
+                }
 
             (before.map { it.receipt.id } + restored.map { it.receipt.id })
                 .distinct()
@@ -151,6 +195,7 @@ class LocalBackupManager @Inject constructor(
                 receiptCount = restored.size,
                 productCount = restored.sumOf { it.products.size },
                 pageCount = restored.sumOf { it.pages.size },
+                attachmentCount = restored.sumOf { it.attachments.size },
             )
         } finally {
             staging.deleteRecursively()
@@ -164,11 +209,10 @@ class LocalBackupManager @Inject constructor(
                 .sortedBy { it.pageIndex }
                 .map { page ->
                     val entryName = "originals/$safeReceiptId/page_${page.pageIndex}.jpg"
-                    val digest = digestSource(Uri.parse(page.originalUri))
-
-                    require(digest.sizeBytes in 1..MAX_PAGE_BYTES) {
-                        "Una pagina originale supera il limite consentito"
-                    }
+                    val digest = digestSource(
+                        uri = Uri.parse(page.originalUri),
+                        maxBytes = MAX_PAGE_BYTES,
+                    )
 
                     BackupPageRecord(
                         id = page.id,
@@ -180,10 +224,36 @@ class LocalBackupManager @Inject constructor(
                     )
                 }
 
+            val attachments = details.attachments
+                .sortedBy { it.createdAtEpochMs }
+                .map { attachment ->
+                    val entryName =
+                        "attachments/$safeReceiptId/${attachment.productId}/attachment_${attachment.id}.bin"
+                    val digest = digestSource(
+                        uri = Uri.parse(attachment.localUri),
+                        maxBytes = MAX_ATTACHMENT_BYTES,
+                    )
+
+                    BackupAttachmentRecord(
+                        id = attachment.id,
+                        receiptId = attachment.receiptId,
+                        productId = attachment.productId,
+                        category = attachment.category,
+                        mimeType = attachment.mimeType,
+                        originalName = attachment.originalName,
+                        note = attachment.note,
+                        createdAtEpochMs = attachment.createdAtEpochMs,
+                        entryName = entryName,
+                        sizeBytes = digest.sizeBytes,
+                        sha256 = digest.sha256,
+                    )
+                }
+
             BackupReceiptRecord(
                 receipt = details.receipt,
                 products = details.products.sortedBy { it.position },
                 pages = pages,
+                attachments = attachments,
             )
         }
 
@@ -210,6 +280,13 @@ class LocalBackupManager @Inject constructor(
                 }
             }
             .toMap()
+        val attachmentSources = receipts
+            .flatMap { details ->
+                details.attachments.map { attachment ->
+                    attachment.id to Uri.parse(attachment.localUri)
+                }
+            }
+            .toMap()
 
         ZipOutputStream(BufferedOutputStream(target.outputStream())).use { zip ->
             writeTextEntry(
@@ -224,32 +301,31 @@ class LocalBackupManager @Inject constructor(
                         pageSources[record.receipt.id to page.pageIndex],
                     ) { "Originale non trovato durante il backup" }
 
-                    zip.putNextEntry(ZipEntry(page.entryName))
-                    val digest = MessageDigest.getInstance("SHA-256")
-                    var written = 0L
+                    writeBinaryEntry(
+                        zip = zip,
+                        entryName = page.entryName,
+                        sourceUri = sourceUri,
+                        expectedSize = page.sizeBytes,
+                        expectedSha256 = page.sha256,
+                        maxBytes = MAX_PAGE_BYTES,
+                        changedMessage = "Un originale è cambiato durante il backup",
+                    )
+                }
 
-                    openSource(sourceUri).use { input ->
-                        val buffer = ByteArray(BUFFER_SIZE)
-                        while (true) {
-                            val read = input.read(buffer)
-                            if (read < 0) break
-                            if (read == 0) continue
-                            digest.update(buffer, 0, read)
-                            zip.write(buffer, 0, read)
-                            written += read
-                            require(written <= MAX_PAGE_BYTES) {
-                                "Pagina originale troppo grande"
-                            }
-                        }
-                    }
-                    zip.closeEntry()
+                record.attachments.forEach { attachment ->
+                    val sourceUri = requireNotNull(
+                        attachmentSources[attachment.id],
+                    ) { "Allegato non trovato durante il backup" }
 
-                    require(written == page.sizeBytes) {
-                        "Un originale è cambiato durante il backup"
-                    }
-                    require(digest.digest().toHex() == page.sha256) {
-                        "Un originale è cambiato durante il backup"
-                    }
+                    writeBinaryEntry(
+                        zip = zip,
+                        entryName = attachment.entryName,
+                        sourceUri = sourceUri,
+                        expectedSize = attachment.sizeBytes,
+                        expectedSha256 = attachment.sha256,
+                        maxBytes = MAX_ATTACHMENT_BYTES,
+                        changedMessage = "Un allegato è cambiato durante il backup",
+                    )
                 }
             }
 
@@ -262,6 +338,43 @@ class LocalBackupManager @Inject constructor(
 
         require(target.isFile && target.length() > 0L) {
             "Il pacchetto di backup è vuoto"
+        }
+    }
+
+    private fun writeBinaryEntry(
+        zip: ZipOutputStream,
+        entryName: String,
+        sourceUri: Uri,
+        expectedSize: Long,
+        expectedSha256: String,
+        maxBytes: Long,
+        changedMessage: String,
+    ) {
+        zip.putNextEntry(ZipEntry(entryName))
+        val digest = MessageDigest.getInstance("SHA-256")
+        var written = 0L
+
+        openSource(sourceUri).use { input ->
+            val buffer = ByteArray(BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                if (read == 0) continue
+                digest.update(buffer, 0, read)
+                zip.write(buffer, 0, read)
+                written += read
+                require(written <= maxBytes) {
+                    "File troppo grande durante il backup"
+                }
+            }
+        }
+        zip.closeEntry()
+
+        require(written == expectedSize) {
+            changedMessage
+        }
+        require(digest.digest().toHex() == expectedSha256) {
+            changedMessage
         }
     }
 
@@ -283,9 +396,31 @@ class LocalBackupManager @Inject constructor(
                 )
                 validateManifest(manifest)
 
-                val expected = manifest.receipts
-                    .flatMap { it.pages }
-                    .associateBy { it.entryName }
+                val expected = buildMap {
+                    manifest.receipts.forEach { record ->
+                        record.pages.forEach { page ->
+                            put(
+                                page.entryName,
+                                ExpectedBackupFile(
+                                    sizeBytes = page.sizeBytes,
+                                    sha256 = page.sha256,
+                                    maxBytes = MAX_PAGE_BYTES,
+                                ),
+                            )
+                        }
+                        record.attachments.forEach { attachment ->
+                            put(
+                                attachment.entryName,
+                                ExpectedBackupFile(
+                                    sizeBytes = attachment.sizeBytes,
+                                    sha256 = attachment.sha256,
+                                    maxBytes = MAX_ATTACHMENT_BYTES,
+                                ),
+                            )
+                        }
+                    }
+                }
+
                 val extracted = mutableMapOf<String, File>()
                 val seen = mutableSetOf(MANIFEST_ENTRY)
                 var complete = false
@@ -309,14 +444,14 @@ class LocalBackupManager @Inject constructor(
                         continue
                     }
 
-                    val page = requireNotNull(expected[entry.name]) {
+                    val expectation = requireNotNull(expected[entry.name]) {
                         "Il backup contiene file inattesi"
                     }
                     require(!entry.isDirectory) {
-                        "Pagina backup non valida"
+                        "File backup non valido"
                     }
 
-                    val target = File(staging, "page_${extracted.size}.jpg")
+                    val target = File(staging, "item_${extracted.size}.bin")
                     val digest = MessageDigest.getInstance("SHA-256")
                     var written = 0L
 
@@ -328,8 +463,11 @@ class LocalBackupManager @Inject constructor(
                             if (read == 0) continue
                             written += read
                             totalBytes += read
-                            require(written <= page.sizeBytes && written <= MAX_PAGE_BYTES) {
-                                "Dimensione pagina backup non valida"
+                            require(
+                                written <= expectation.sizeBytes &&
+                                    written <= expectation.maxBytes
+                            ) {
+                                "Dimensione file backup non valida"
                             }
                             require(totalBytes <= MAX_TOTAL_RESTORE_BYTES) {
                                 "Il backup supera il limite di sicurezza"
@@ -340,11 +478,11 @@ class LocalBackupManager @Inject constructor(
                         output.flush()
                     }
 
-                    require(written == page.sizeBytes && written > 0L) {
-                        "Pagina backup incompleta"
+                    require(written == expectation.sizeBytes && written > 0L) {
+                        "File backup incompleto"
                     }
-                    require(digest.digest().toHex() == page.sha256) {
-                        "Checksum pagina non valido"
+                    require(digest.digest().toHex() == expectation.sha256) {
+                        "Checksum file backup non valido"
                     }
 
                     extracted[entry.name] = target
@@ -354,7 +492,7 @@ class LocalBackupManager @Inject constructor(
                     "Backup incompleto: marcatore finale mancante"
                 }
                 require(extracted.keys == expected.keys) {
-                    "Backup incompleto: mancano pagine originali"
+                    "Backup incompleto: mancano file originali o allegati"
                 }
 
                 return ExtractedBackup(
@@ -369,7 +507,7 @@ class LocalBackupManager @Inject constructor(
         require(manifest.format == BACKUP_FORMAT) {
             "Formato backup non supportato"
         }
-        require(manifest.formatVersion == BACKUP_FORMAT_VERSION) {
+        require(manifest.formatVersion in MIN_BACKUP_FORMAT_VERSION..BACKUP_FORMAT_VERSION) {
             "Versione backup non supportata"
         }
         require(manifest.databaseSchemaVersion <= GARANZIA_SCHEMA_VERSION) {
@@ -381,10 +519,14 @@ class LocalBackupManager @Inject constructor(
         require(manifest.pageCount <= MAX_PAGES) {
             "Troppe pagine nel backup"
         }
+        require(manifest.attachmentCount <= MAX_ATTACHMENTS) {
+            "Troppi allegati nel backup"
+        }
 
         val receiptIds = mutableSetOf<String>()
         val productIds = mutableSetOf<Long>()
         val pageIds = mutableSetOf<Long>()
+        val attachmentIds = mutableSetOf<Long>()
         val entryNames = mutableSetOf<String>()
         var declaredBytes = 0L
 
@@ -409,11 +551,13 @@ class LocalBackupManager @Inject constructor(
                 "Uno scontrino nel backup non contiene pagine originali"
             }
 
+            val recordProductIds = mutableSetOf<Long>()
             val positions = mutableSetOf<Int>()
             record.products.forEach { product ->
                 require(product.id > 0L && productIds.add(product.id)) {
                     "ID prodotto non valido o duplicato"
                 }
+                recordProductIds += product.id
                 require(product.receiptId == record.receipt.id) {
                     "Prodotto associato allo scontrino sbagliato"
                 }
@@ -445,19 +589,52 @@ class LocalBackupManager @Inject constructor(
                 require(page.pageIndex >= 0 && pageIndexes.add(page.pageIndex)) {
                     "Indice pagina duplicato"
                 }
-                require(isSafeEntryName(page.entryName) && entryNames.add(page.entryName)) {
-                    "Percorso pagina non valido o duplicato"
-                }
-                require(page.entryName.startsWith("originals/")) {
-                    "Percorso originale non valido"
-                }
-                require(page.sizeBytes in 1..MAX_PAGE_BYTES) {
-                    "Dimensione pagina non valida"
-                }
-                require(page.sha256.matches(Regex("[0-9a-f]{64}"))) {
-                    "Checksum pagina non valido"
-                }
+                validateBinaryRecord(
+                    entryName = page.entryName,
+                    expectedPrefix = "originals/",
+                    sizeBytes = page.sizeBytes,
+                    sha256 = page.sha256,
+                    maxBytes = MAX_PAGE_BYTES,
+                    entryNames = entryNames,
+                )
                 declaredBytes += page.sizeBytes
+                require(declaredBytes <= MAX_TOTAL_RESTORE_BYTES) {
+                    "Il backup supera il limite di sicurezza"
+                }
+            }
+
+            record.attachments.forEach { attachment ->
+                require(attachment.id > 0L && attachmentIds.add(attachment.id)) {
+                    "ID allegato non valido o duplicato"
+                }
+                require(attachment.receiptId == record.receipt.id) {
+                    "Allegato associato allo scontrino sbagliato"
+                }
+                require(attachment.productId in recordProductIds) {
+                    "Allegato associato a un prodotto non presente"
+                }
+                require(
+                    ProductAttachmentCategory.entries.any {
+                        it.storedValue == attachment.category
+                    }
+                ) {
+                    "Categoria allegato non valida"
+                }
+                require(attachment.mimeType.startsWith("image/")) {
+                    "Tipo allegato non supportato"
+                }
+                require(attachment.note == null || attachment.note.length <= 250) {
+                    "Nota allegato troppo lunga"
+                }
+                validateBinaryRecord(
+                    entryName = attachment.entryName,
+                    expectedPrefix = "attachments/",
+                    sizeBytes = attachment.sizeBytes,
+                    sha256 = attachment.sha256,
+                    maxBytes = MAX_ATTACHMENT_BYTES,
+                    entryNames = entryNames,
+                )
+                declaredBytes += attachment.sizeBytes
                 require(declaredBytes <= MAX_TOTAL_RESTORE_BYTES) {
                     "Il backup supera il limite di sicurezza"
                 }
@@ -465,7 +642,32 @@ class LocalBackupManager @Inject constructor(
         }
     }
 
-    private fun digestSource(uri: Uri): SourceDigest =
+    private fun validateBinaryRecord(
+        entryName: String,
+        expectedPrefix: String,
+        sizeBytes: Long,
+        sha256: String,
+        maxBytes: Long,
+        entryNames: MutableSet<String>,
+    ) {
+        require(isSafeEntryName(entryName) && entryNames.add(entryName)) {
+            "Percorso file non valido o duplicato"
+        }
+        require(entryName.startsWith(expectedPrefix)) {
+            "Percorso file backup non valido"
+        }
+        require(sizeBytes in 1..maxBytes) {
+            "Dimensione file non valida"
+        }
+        require(sha256.matches(Regex("[0-9a-f]{64}"))) {
+            "Checksum file non valido"
+        }
+    }
+
+    private fun digestSource(
+        uri: Uri,
+        maxBytes: Long,
+    ): SourceDigest =
         openSource(uri).use { input ->
             val digest = MessageDigest.getInstance("SHA-256")
             var size = 0L
@@ -476,10 +678,14 @@ class LocalBackupManager @Inject constructor(
                 if (read < 0) break
                 if (read == 0) continue
                 size += read
-                require(size <= MAX_PAGE_BYTES) {
-                    "Pagina originale troppo grande"
+                require(size <= maxBytes) {
+                    "File troppo grande"
                 }
                 digest.update(buffer, 0, read)
+            }
+
+            require(size > 0L) {
+                "File vuoto"
             }
 
             SourceDigest(
@@ -568,6 +774,12 @@ class LocalBackupManager @Inject constructor(
         val sha256: String,
     )
 
+    private data class ExpectedBackupFile(
+        val sizeBytes: Long,
+        val sha256: String,
+        val maxBytes: Long,
+    )
+
     private data class ExtractedBackup(
         val manifest: BackupManifest,
         val files: Map<String, File>,
@@ -575,15 +787,18 @@ class LocalBackupManager @Inject constructor(
 
     private companion object {
         const val BACKUP_FORMAT = "garanzia-backup"
-        const val BACKUP_FORMAT_VERSION = 1
+        const val MIN_BACKUP_FORMAT_VERSION = 1
+        const val BACKUP_FORMAT_VERSION = 2
         const val MANIFEST_ENTRY = "manifest.json"
         const val COMPLETE_ENTRY = "backup_complete.txt"
         const val BUFFER_SIZE = 64 * 1024
         const val MAX_RECEIPTS = 10_000
         const val MAX_PAGES = 50_000
-        const val MAX_MANIFEST_BYTES = 8L * 1024L * 1024L
+        const val MAX_ATTACHMENTS = 100_000
+        const val MAX_MANIFEST_BYTES = 12L * 1024L * 1024L
         const val MAX_MARKER_BYTES = 4L * 1024L
         const val MAX_PAGE_BYTES = 50L * 1024L * 1024L
+        const val MAX_ATTACHMENT_BYTES = 30L * 1024L * 1024L
         const val MAX_TOTAL_RESTORE_BYTES = 2L * 1024L * 1024L * 1024L
     }
 }

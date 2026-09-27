@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.milanstevic.garanzia.confirmation.ProductConfirmationDraft
 import com.milanstevic.garanzia.confirmation.ReceiptConfirmationDraft
 import com.milanstevic.garanzia.data.local.GaranziaDatabase
+import com.milanstevic.garanzia.data.local.ProductAttachmentEntity
 import com.milanstevic.garanzia.data.local.ReceiptEntity
 import com.milanstevic.garanzia.data.local.ReceiptPageEntity
 import com.milanstevic.garanzia.data.local.ReceiptProductEntity
@@ -109,6 +110,19 @@ class ReceiptRepositoryRoomTest {
                     originalUri = "file:///restored/page.jpg",
                 ),
             ),
+            attachments = listOf(
+                ProductAttachmentEntity(
+                    id = 99L,
+                    receiptId = "restored-receipt",
+                    productId = 77L,
+                    category = "serial",
+                    localUri = "file:///restored/serial.jpg",
+                    mimeType = "image/jpeg",
+                    originalName = "serial.jpg",
+                    note = "Matricola",
+                    createdAtEpochMs = 66L,
+                ),
+            ),
         )
 
         repository.replaceArchive(listOf(restored))
@@ -120,6 +134,48 @@ class ReceiptRepositoryRoomTest {
         assertEquals("expiring:2028-01-15", stored.products.single().warrantyLastNotificationKey)
         assertEquals(88L, stored.pages.single().id)
         assertEquals("file:///restored/page.jpg", stored.pages.single().originalUri)
+        assertEquals(99L, stored.attachments.single().id)
+        assertEquals(77L, stored.attachments.single().productId)
+        assertEquals("serial", stored.attachments.single().category)
+        assertEquals("Matricola", stored.attachments.single().note)
+    }
+
+    @Test
+    fun updatingReceiptPreservesAttachmentOnRetainedProduct() = runBlocking {
+        val receiptId = repository.saveConfirmedReceipt(
+            draft = validDraft(),
+            originalUris = listOf(Uri.parse("file:///receipt/page1.jpg")),
+            rawOcrText = "OCR TEST",
+            confirmedAtEpochMs = 1_000L,
+        )
+
+        val before = requireNotNull(repository.getReceipt(receiptId))
+        val product = before.products.minBy { it.position }
+        val attachment = repository.addProductAttachment(
+            receiptId = receiptId,
+            productId = product.id,
+            category = "box",
+            localUri = "file:///attachments/box.jpg",
+            mimeType = "image/jpeg",
+            originalName = "box.jpg",
+            note = "Scatola originale",
+            createdAtEpochMs = 2_000L,
+        )
+
+        repository.updateConfirmedReceipt(
+            receiptId = receiptId,
+            draft = validDraft().copy(
+                merchant = "FERRAMENTA ROSSI AGGIORNATA",
+            ),
+        )
+
+        val after = requireNotNull(repository.getReceipt(receiptId))
+        assertEquals("FERRAMENTA ROSSI AGGIORNATA", after.receipt.merchant)
+        assertEquals(product.id, after.products.minBy { it.position }.id)
+        assertEquals(1, after.attachments.size)
+        assertEquals(attachment.id, after.attachments.single().id)
+        assertEquals(product.id, after.attachments.single().productId)
+        assertEquals("Scatola originale", after.attachments.single().note)
     }
 
     @Test

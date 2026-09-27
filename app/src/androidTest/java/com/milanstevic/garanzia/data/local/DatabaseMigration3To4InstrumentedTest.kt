@@ -8,14 +8,13 @@ import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class DatabaseMigration2To3InstrumentedTest {
+class DatabaseMigration3To4InstrumentedTest {
 
     private lateinit var context: Context
 
@@ -23,7 +22,7 @@ class DatabaseMigration2To3InstrumentedTest {
     fun setUp() {
         context = InstrumentationRegistry.getInstrumentation().targetContext
         context.deleteDatabase(TEST_DATABASE)
-        createLegacyV2Database()
+        createLegacyV3Database()
     }
 
     @After
@@ -32,44 +31,54 @@ class DatabaseMigration2To3InstrumentedTest {
     }
 
     @Test
-    fun migrationPreservesProductAndAddsWarrantyDefaults() = runBlocking {
+    fun migrationPreservesWarrantyAndCreatesAttachmentTable() = runBlocking {
         val database = Room.databaseBuilder(
             context,
             GaranziaDatabase::class.java,
             TEST_DATABASE,
         )
-            .addMigrations(
-                DatabaseMigrations.MIGRATION_2_3,
-                DatabaseMigrations.MIGRATION_3_4,
-            )
+            .addMigrations(DatabaseMigrations.MIGRATION_3_4)
             .build()
 
         try {
-            val product = requireNotNull(
-                database.receiptDao()
-                    .getReceipt(RECEIPT_ID)
-                    ?.products
-                    ?.single(),
+            val details = requireNotNull(
+                database.receiptDao().getReceipt(RECEIPT_ID),
             )
 
-            assertEquals("TRAPANO BOSCH 18V", product.name)
-            assertNull(product.warrantyMonths)
-            assertEquals(30, product.warrantyReminderDays)
+            val product = details.products.single()
+            assertEquals(PRODUCT_ID, product.id)
+            assertEquals(24, product.warrantyMonths)
+            assertEquals(45, product.warrantyReminderDays)
             assertTrue(product.warrantyNotificationsEnabled)
-            assertNull(product.warrantyLastNotificationKey)
-            assertTrue(
-                database.receiptDao()
-                    .getReceipt(RECEIPT_ID)
-                    ?.attachments
-                    ?.isEmpty() == true,
+            assertTrue(details.attachments.isEmpty())
+
+            val attachmentId = database.receiptDao().insertAttachment(
+                ProductAttachmentEntity(
+                    receiptId = RECEIPT_ID,
+                    productId = PRODUCT_ID,
+                    category = "serial",
+                    localUri = "file:///attachments/serial.jpg",
+                    mimeType = "image/jpeg",
+                    originalName = "serial.jpg",
+                    note = "Matricola sul retro",
+                    createdAtEpochMs = 123L,
+                ),
             )
+
+            val attachments = database.receiptDao().getProductAttachments(
+                receiptId = RECEIPT_ID,
+                productId = PRODUCT_ID,
+            )
+            assertEquals(1, attachments.size)
+            assertEquals(attachmentId, attachments.single().id)
+            assertEquals("serial", attachments.single().category)
             assertEquals(4, database.openHelper.writableDatabase.version)
         } finally {
             database.close()
         }
     }
 
-    private fun createLegacyV2Database() {
+    private fun createLegacyV3Database() {
         val file = context.getDatabasePath(TEST_DATABASE)
         file.parentFile?.mkdirs()
 
@@ -113,6 +122,10 @@ class DatabaseMigration2To3InstrumentedTest {
                     unitPrice TEXT,
                     lineTotal TEXT,
                     sourceConfidence REAL,
+                    warrantyMonths INTEGER,
+                    warrantyReminderDays INTEGER NOT NULL DEFAULT 30,
+                    warrantyNotificationsEnabled INTEGER NOT NULL DEFAULT 1,
+                    warrantyLastNotificationKey TEXT,
                     FOREIGN KEY(receiptId) REFERENCES receipts(id)
                         ON UPDATE NO ACTION ON DELETE CASCADE
                 )
@@ -166,17 +179,20 @@ class DatabaseMigration2To3InstrumentedTest {
                     id, merchant, purchaseDate, purchaseTime, totalAmount, currency,
                     vatNumber, documentNumber, paymentMethod, rawOcrText, confirmedAtEpochMs
                 ) VALUES(
-                    '$RECEIPT_ID', 'FERRAMENTA ROSSI', '2026-09-24', '10:30', '149.90', 'EUR',
-                    '12345678901', 'A-100', 'Carta', 'TRAPANO BOSCH 18V', 1
+                    '$RECEIPT_ID', 'FERRAMENTA TEST', '2026-09-24', '10:30', '149.90', 'EUR',
+                    '12345678901', 'A-100', 'Carta', 'TRAPANO TEST', 1
                 )
                 """.trimIndent(),
             )
             db.execSQL(
                 """
                 INSERT INTO receipt_products(
-                    id, receiptId, position, name, quantity, unitPrice, lineTotal, sourceConfidence
+                    id, receiptId, position, name, quantity, unitPrice, lineTotal, sourceConfidence,
+                    warrantyMonths, warrantyReminderDays, warrantyNotificationsEnabled,
+                    warrantyLastNotificationKey
                 ) VALUES(
-                    10, '$RECEIPT_ID', 0, 'TRAPANO BOSCH 18V', '1', '149.90', '149.90', 0.95
+                    $PRODUCT_ID, '$RECEIPT_ID', 0, 'TRAPANO TEST', '1', '149.90', '149.90', 0.95,
+                    24, 45, 1, NULL
                 )
                 """.trimIndent(),
             )
@@ -192,16 +208,17 @@ class DatabaseMigration2To3InstrumentedTest {
             db.execSQL(
                 """
                 INSERT INTO receipt_search(receiptId, searchableText)
-                VALUES('$RECEIPT_ID', 'FERRAMENTA ROSSI TRAPANO BOSCH 18V')
+                VALUES('$RECEIPT_ID', 'FERRAMENTA TEST TRAPANO TEST')
                 """.trimIndent(),
             )
 
-            db.version = 2
+            db.version = 3
         }
     }
 
     private companion object {
-        const val TEST_DATABASE = "garanzia-migration-v2-v3-test.db"
-        const val RECEIPT_ID = "legacy-receipt-2"
+        const val TEST_DATABASE = "garanzia-migration-v3-v4-test.db"
+        const val RECEIPT_ID = "legacy-receipt-3"
+        const val PRODUCT_ID = 10L
     }
 }

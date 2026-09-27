@@ -82,3 +82,38 @@ data class ReceiptPageEntity(
     val pageIndex: Int,
     val originalUri: String,
 )
+
+
+@Entity(
+    tableName = "product_attachments",
+    foreignKeys = [
+        ForeignKey(
+            entity = ReceiptEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["receiptId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = ReceiptProductEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["productId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [
+        Index(value = ["receiptId"]),
+        Index(value = ["productId"]),
+        Index(value = ["productId", "createdAtEpochMs"]),
+    ],
+)
+data class ProductAttachmentEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val receiptId: String,
+    val productId: Long,
+    val category: String,
+    val localUri: String,
+    val mimeType: String,
+    val originalName: String?,
+    val note: String?,
+    val createdAtEpochMs: Long,
+)

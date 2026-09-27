@@ -34,6 +34,14 @@ object BackupManifestCodec {
                                 .sortedBy { it.pageIndex }
                                 .forEach { put(pageToJson(it)) }
                         },
+                    )
+                    .put(
+                        "attachments",
+                        JSONArray().apply {
+                            record.attachments
+                                .sortedBy { it.createdAtEpochMs }
+                                .forEach { put(attachmentToJson(it)) }
+                        },
                     ),
             )
         }
@@ -64,11 +72,25 @@ object BackupManifestCodec {
                     }
                 }
 
+                val attachmentsJson = item.optJSONArray("attachments")
+                val attachments = buildList {
+                    if (attachmentsJson != null) {
+                        for (attachmentIndex in 0 until attachmentsJson.length()) {
+                            add(
+                                attachmentFromJson(
+                                    attachmentsJson.getJSONObject(attachmentIndex),
+                                ),
+                            )
+                        }
+                    }
+                }
+
                 add(
                     BackupReceiptRecord(
                         receipt = receipt,
                         products = products,
                         pages = pages,
+                        attachments = attachments,
                     ),
                 )
             }
@@ -168,6 +190,35 @@ object BackupManifestCodec {
             id = json.getLong("id"),
             receiptId = json.getString("receiptId"),
             pageIndex = json.getInt("pageIndex"),
+            entryName = json.getString("entryName"),
+            sizeBytes = json.getLong("sizeBytes"),
+            sha256 = json.getString("sha256"),
+        )
+
+    private fun attachmentToJson(attachment: BackupAttachmentRecord): JSONObject =
+        JSONObject()
+            .put("id", attachment.id)
+            .put("receiptId", attachment.receiptId)
+            .put("productId", attachment.productId)
+            .put("category", attachment.category)
+            .put("mimeType", attachment.mimeType)
+            .putNullable("originalName", attachment.originalName)
+            .putNullable("note", attachment.note)
+            .put("createdAtEpochMs", attachment.createdAtEpochMs)
+            .put("entryName", attachment.entryName)
+            .put("sizeBytes", attachment.sizeBytes)
+            .put("sha256", attachment.sha256)
+
+    private fun attachmentFromJson(json: JSONObject): BackupAttachmentRecord =
+        BackupAttachmentRecord(
+            id = json.getLong("id"),
+            receiptId = json.getString("receiptId"),
+            productId = json.getLong("productId"),
+            category = json.getString("category"),
+            mimeType = json.getString("mimeType"),
+            originalName = json.nullableString("originalName"),
+            note = json.nullableString("note"),
+            createdAtEpochMs = json.getLong("createdAtEpochMs"),
             entryName = json.getString("entryName"),
             sizeBytes = json.getLong("sizeBytes"),
             sha256 = json.getString("sha256"),

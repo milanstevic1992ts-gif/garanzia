@@ -12,10 +12,25 @@ data class BackupPageRecord(
     val sha256: String,
 )
 
+data class BackupAttachmentRecord(
+    val id: Long,
+    val receiptId: String,
+    val productId: Long,
+    val category: String,
+    val mimeType: String,
+    val originalName: String?,
+    val note: String?,
+    val createdAtEpochMs: Long,
+    val entryName: String,
+    val sizeBytes: Long,
+    val sha256: String,
+)
+
 data class BackupReceiptRecord(
     val receipt: ReceiptEntity,
     val products: List<ReceiptProductEntity>,
     val pages: List<BackupPageRecord>,
+    val attachments: List<BackupAttachmentRecord> = emptyList(),
 )
 
 data class BackupManifest(
@@ -28,6 +43,7 @@ data class BackupManifest(
     val receiptCount: Int get() = receipts.size
     val productCount: Int get() = receipts.sumOf { it.products.size }
     val pageCount: Int get() = receipts.sumOf { it.pages.size }
+    val attachmentCount: Int get() = receipts.sumOf { it.attachments.size }
 }
 
 data class BackupSummary(
@@ -35,6 +51,7 @@ data class BackupSummary(
     val productCount: Int,
     val pageCount: Int,
     val sizeBytes: Long,
+    val attachmentCount: Int = 0,
 )
 
 data class BackupPreview(
@@ -42,10 +59,12 @@ data class BackupPreview(
     val receiptCount: Int,
     val productCount: Int,
     val pageCount: Int,
+    val attachmentCount: Int = 0,
 )
 
 data class RestoreSummary(
     val receiptCount: Int,
     val productCount: Int,
     val pageCount: Int,
+    val attachmentCount: Int = 0,
 )

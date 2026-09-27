@@ -114,7 +114,7 @@ jobs:
       - name: Upload generated Room schema
         uses: actions/upload-artifact@v4
         with:
-          name: room-schema-v3
+          name: room-schema-v4
           path: app/schemas
           if-no-files-found: error
           retention-days: 7

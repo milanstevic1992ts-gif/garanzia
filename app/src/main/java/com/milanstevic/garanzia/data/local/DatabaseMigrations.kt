@@ -74,8 +74,46 @@ object DatabaseMigrations {
             }
         }
 
+    val MIGRATION_3_4: Migration =
+        object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS product_attachments (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        receiptId TEXT NOT NULL,
+                        productId INTEGER NOT NULL,
+                        category TEXT NOT NULL,
+                        localUri TEXT NOT NULL,
+                        mimeType TEXT NOT NULL,
+                        originalName TEXT,
+                        note TEXT,
+                        createdAtEpochMs INTEGER NOT NULL,
+                        FOREIGN KEY(receiptId) REFERENCES receipts(id)
+                            ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(productId) REFERENCES receipt_products(id)
+                            ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                    """.trimIndent(),
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_product_attachments_receiptId " +
+                        "ON product_attachments(receiptId)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_product_attachments_productId " +
+                        "ON product_attachments(productId)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_product_attachments_productId_createdAtEpochMs " +
+                        "ON product_attachments(productId, createdAtEpochMs)",
+                )
+            }
+        }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
+        MIGRATION_3_4,
     )
 }

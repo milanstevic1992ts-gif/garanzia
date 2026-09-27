@@ -1,5 +1,6 @@
 package com.milanstevic.garanzia.product
 
+import com.milanstevic.garanzia.data.local.ProductAttachmentEntity
 import com.milanstevic.garanzia.data.local.ReceiptEntity
 import com.milanstevic.garanzia.data.local.ReceiptPageEntity
 import com.milanstevic.garanzia.data.local.ReceiptProductEntity
@@ -31,6 +32,9 @@ class ProductDetailMapperTest {
         assertEquals("A-100", mapped.documentNumber)
         assertEquals(0.94f, mapped.sourceConfidence)
         assertEquals(2, mapped.pageCount)
+        assertEquals(1, mapped.attachments.size)
+        assertEquals("serial", mapped.attachments.single().category.storedValue)
+        assertEquals("Matricola sul retro", mapped.attachments.single().note)
     }
 
     @Test
@@ -103,6 +107,19 @@ class ProductDetailMapperTest {
                     receiptId = "receipt-1",
                     pageIndex = 1,
                     originalUri = "file:///receipt-1-02.jpg",
+                ),
+            ),
+            attachments = listOf(
+                ProductAttachmentEntity(
+                    id = 31L,
+                    receiptId = "receipt-1",
+                    productId = 11L,
+                    category = "serial",
+                    localUri = "file:///attachments/serial.jpg",
+                    mimeType = "image/jpeg",
+                    originalName = "serial.jpg",
+                    note = "Matricola sul retro",
+                    createdAtEpochMs = 50L,
                 ),
             ),
         )

@@ -44,6 +44,8 @@ fun FallbackCameraScreen(
     outputFile: File,
     onCaptured: (Uri) -> Unit,
     onCancel: () -> Unit,
+    title: String = "Inquadra lo scontrino",
+    subtitle: String = "Tieni visibili tutti i bordi e cerca di evitare riflessi.",
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -115,12 +117,12 @@ fun FallbackCameraScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
-                    text = "Inquadra lo scontrino",
+                    text = title,
                     color = Color.White,
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    text = "Tieni visibili tutti i bordi e cerca di evitare riflessi.",
+                    text = subtitle,
                     color = Color.White.copy(alpha = 0.78f),
                     style = MaterialTheme.typography.bodySmall,
                 )

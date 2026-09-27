@@ -41,6 +41,7 @@ class DatabaseMigration1To2InstrumentedTest {
             .addMigrations(
                 DatabaseMigrations.MIGRATION_1_2,
                 DatabaseMigrations.MIGRATION_2_3,
+                DatabaseMigrations.MIGRATION_3_4,
             )
             .build()
 
@@ -86,7 +87,8 @@ class DatabaseMigration1To2InstrumentedTest {
             assertTrue(product.warrantyNotificationsEnabled)
             assertEquals(null, product.warrantyLastNotificationKey)
 
-            assertTrue(database.openHelper.writableDatabase.version == 3)
+            assertTrue(migrated.attachments.isEmpty())
+            assertTrue(database.openHelper.writableDatabase.version == 4)
         } finally {
             database.close()
         }
