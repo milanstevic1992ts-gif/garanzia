@@ -49,6 +49,8 @@ import com.milanstevic.garanzia.ocr.OcrResultScreen
 import com.milanstevic.garanzia.ocr.ReceiptOcrEngine
 import com.milanstevic.garanzia.product.ProductDetailMapper
 import com.milanstevic.garanzia.product.ProductDetailScreen
+import com.milanstevic.garanzia.product.attachment.ProductAttachmentCategory
+import com.milanstevic.garanzia.product.attachment.ProductAttachmentManager
 import com.milanstevic.garanzia.scanner.DocumentScannerManager
 import com.milanstevic.garanzia.scanner.FallbackCameraScreen
 import com.milanstevic.garanzia.scanner.ReceiptFileStore
@@ -104,6 +106,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var localBackupManager: LocalBackupManager
 
+    @Inject
+    lateinit var productAttachmentManager: ProductAttachmentManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -121,6 +126,7 @@ class MainActivity : ComponentActivity() {
                     receiptLifecycleManager = receiptLifecycleManager,
                     diagnosticsManager = diagnosticsManager,
                     localBackupManager = localBackupManager,
+                    productAttachmentManager = productAttachmentManager,
                 )
             }
         }
@@ -136,6 +142,7 @@ private enum class AppScreen {
     ARCHIVE,
     ARCHIVE_DETAIL,
     PRODUCT_DETAIL,
+    ATTACHMENT_CAMERA,
     PDF_VIEWER,
     STORAGE,
     DIAGNOSTICS,
@@ -154,6 +161,7 @@ private fun GaranziaApp(
     receiptLifecycleManager: ReceiptLifecycleManager,
     diagnosticsManager: DiagnosticsManager,
     localBackupManager: LocalBackupManager,
+    productAttachmentManager: ProductAttachmentManager,
 ) {
     val scope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(AppScreen.HOME) }
@@ -175,6 +183,12 @@ private fun GaranziaApp(
     var warrantySaving by remember { mutableStateOf(false) }
     var warrantyMessage by remember { mutableStateOf<String?>(null) }
     var warrantyError by remember { mutableStateOf<String?>(null) }
+    var attachmentBusy by remember { mutableStateOf(false) }
+    var attachmentMessage by remember { mutableStateOf<String?>(null) }
+    var pendingAttachmentCategory by remember {
+        mutableStateOf(ProductAttachmentCategory.OTHER)
+    }
+    var attachmentCameraOutput by remember { mutableStateOf<File?>(null) }
     var archiveFilters by remember { mutableStateOf(ArchiveFilterState()) }
     var archiveSearchIds by remember { mutableStateOf<Set<String>?>(null) }
     val storageState by storageSettings.state.collectAsState()
@@ -210,6 +224,40 @@ private fun GaranziaApp(
         if (!granted) {
             warrantyMessage =
                 "Garanzia salvata. Le notifiche restano disattivate da Android finché non concedi il permesso."
+        }
+    }
+
+
+    val attachmentGalleryLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null && !attachmentBusy) {
+            val receiptId = selectedArchiveReceiptId
+            val productId = selectedProductId
+
+            if (receiptId == null || productId == null) {
+                attachmentMessage = "Prodotto non disponibile."
+            } else {
+                attachmentBusy = true
+                attachmentMessage = null
+                scope.launch {
+                    try {
+                        productAttachmentManager.addFromGallery(
+                            receiptId = receiptId,
+                            productId = productId,
+                            category = pendingAttachmentCategory,
+                            sourceUri = uri,
+                        )
+                        attachmentMessage =
+                            "Immagine aggiunta come ${pendingAttachmentCategory.label}."
+                    } catch (t: Throwable) {
+                        attachmentMessage =
+                            t.message ?: "Impossibile aggiungere l'immagine"
+                    } finally {
+                        attachmentBusy = false
+                    }
+                }
+            }
         }
     }
 
@@ -473,6 +521,17 @@ private fun GaranziaApp(
             if (granted) launchFallbackCamera()
         }
 
+
+    val attachmentCameraPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                attachmentCameraOutput = productAttachmentManager.newCameraCaptureFile()
+                screen = AppScreen.ATTACHMENT_CAMERA
+            } else {
+                attachmentMessage = "Permesso fotocamera non concesso."
+            }
+        }
+
     val documentScannerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
@@ -494,6 +553,22 @@ private fun GaranziaApp(
             launchFallbackCamera()
         } else {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+
+    fun requestAttachmentCamera(category: ProductAttachmentCategory) {
+        pendingAttachmentCategory = category
+        attachmentMessage = null
+
+        if (
+            ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            attachmentCameraOutput = productAttachmentManager.newCameraCaptureFile()
+            screen = AppScreen.ATTACHMENT_CAMERA
+        } else {
+            attachmentCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
@@ -543,6 +618,63 @@ private fun GaranziaApp(
                         screen = AppScreen.HOME
                     },
                 )
+            }
+        }
+
+
+        AppScreen.ATTACHMENT_CAMERA -> {
+            val output = attachmentCameraOutput
+            val receiptId = selectedArchiveReceiptId
+            val productId = selectedProductId
+
+            if (output != null && receiptId != null && productId != null) {
+                FallbackCameraScreen(
+                    outputFile = output,
+                    title = "Foto prodotto",
+                    subtitle = "Fotografa scatola, seriale, prova di pagamento o qualsiasi dettaglio utile.",
+                    onCaptured = {
+                        if (!attachmentBusy) {
+                            attachmentBusy = true
+                            attachmentMessage = null
+                            scope.launch {
+                                try {
+                                    productAttachmentManager.addFromCamera(
+                                        receiptId = receiptId,
+                                        productId = productId,
+                                        category = pendingAttachmentCategory,
+                                        capturedFile = output,
+                                    )
+                                    attachmentMessage =
+                                        "Foto aggiunta come ${pendingAttachmentCategory.label}."
+                                } catch (t: Throwable) {
+                                    productAttachmentManager.discardPendingCamera(output)
+                                    attachmentMessage =
+                                        t.message ?: "Impossibile salvare la foto"
+                                } finally {
+                                    attachmentCameraOutput = null
+                                    attachmentBusy = false
+                                    screen = AppScreen.PRODUCT_DETAIL
+                                }
+                            }
+                        }
+                    },
+                    onCancel = {
+                        productAttachmentManager.discardPendingCamera(output)
+                        attachmentCameraOutput = null
+                        screen = AppScreen.PRODUCT_DETAIL
+                    },
+                )
+            } else {
+                LaunchedEffect(output, receiptId, productId) {
+                    productAttachmentManager.discardPendingCamera(output)
+                    attachmentCameraOutput = null
+                    screen =
+                        if (selectedProductId != null) {
+                            AppScreen.PRODUCT_DETAIL
+                        } else {
+                            AppScreen.ARCHIVE_DETAIL
+                        }
+                }
             }
         }
 
@@ -731,6 +863,7 @@ private fun GaranziaApp(
                         selectedProductId = productId
                         warrantyMessage = null
                         warrantyError = null
+                        attachmentMessage = null
                         screen = AppScreen.PRODUCT_DETAIL
                     },
                     onEdit = {
@@ -875,9 +1008,62 @@ private fun GaranziaApp(
                     warrantySaving = warrantySaving,
                     warrantyMessage = warrantyMessage,
                     warrantyError = warrantyError,
+                    attachmentBusy = attachmentBusy,
+                    attachmentMessage = attachmentMessage,
+                    onAddAttachmentFromGallery = { category ->
+                        pendingAttachmentCategory = category
+                        attachmentMessage = null
+                        attachmentGalleryLauncher.launch(arrayOf("image/*"))
+                    },
+                    onTakeAttachmentPhoto = { category ->
+                        requestAttachmentCamera(category)
+                    },
+                    onUpdateAttachmentNote = { attachment, note ->
+                        if (!attachmentBusy) {
+                            attachmentBusy = true
+                            attachmentMessage = null
+                            scope.launch {
+                                try {
+                                    productAttachmentManager.updateNote(
+                                        attachment = attachment,
+                                        note = note,
+                                    )
+                                    attachmentMessage = "Nota allegato salvata."
+                                } catch (t: Throwable) {
+                                    attachmentMessage =
+                                        t.message ?: "Impossibile salvare la nota"
+                                } finally {
+                                    attachmentBusy = false
+                                }
+                            }
+                        }
+                    },
+                    onDeleteAttachment = { attachment ->
+                        if (!attachmentBusy) {
+                            attachmentBusy = true
+                            attachmentMessage = null
+                            scope.launch {
+                                try {
+                                    val fileRemoved = productAttachmentManager.delete(attachment)
+                                    attachmentMessage =
+                                        if (fileRemoved) {
+                                            "Allegato eliminato."
+                                        } else {
+                                            "Allegato rimosso. Pulizia file locale da verificare."
+                                        }
+                                } catch (t: Throwable) {
+                                    attachmentMessage =
+                                        t.message ?: "Impossibile eliminare l'allegato"
+                                } finally {
+                                    attachmentBusy = false
+                                }
+                            }
+                        }
+                    },
                     onBack = {
                         warrantyMessage = null
                         warrantyError = null
+                        attachmentMessage = null
                         selectedProductId = null
                         screen = AppScreen.ARCHIVE_DETAIL
                     },
